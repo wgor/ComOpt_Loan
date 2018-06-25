@@ -1,0 +1,27 @@
+# """ Create a new model environment.
+# Args:
+#     activated_ems: number of ems that should be included
+#     seed: seed for the random number generator (optional)
+# Attributes:
+#     schedule: schedule object
+#     running: a bool indicating if the model should continue running
+# """
+
+""" The market agent (MA) represents external agents that have a need for flexibility (for example, an energy supplier or a network operator).
+Attributes:
+    type:           declares which market the model simulates e.g. "Intraday_Model_01", "Day-Ahead_Model_01", "BalancingMarket", etc.
+    periods:        timesteps with variant length depending on market model type
+    datetime:       timestamp with date and end time for each period e.g. period 1 lasts from 00:00 until 01:00,
+                    so datetime shows the end time 01:00
+    market_data:    includes series of flexibilities requested by markets (oponents)
+Methods:
+    clearing:       matches flex offer with flex requests vector and sends commits to TA.
+"""
+
+""" Aggregator-type like agents who schedules and optimizes device applications.
+Args:
+    num_ems:       number of ems-agents that should be implemented
+Attributes:
+
+Methods:
+"""
