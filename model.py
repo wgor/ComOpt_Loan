@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 #% autoreload 2
 #% matplotlib
 
+''' Sequence of modelsteps. Gets printed within simulation output'''
 message_01 = "1.TA sent UDI-Event 'Baseline' to its attached EM-Systems.\n"
 message_02 = "2.EM-System sent UDI-Event 'Baseline' to its attached TA."
 message_03 = "3.TA sent prognosis with baseschedule to the MA.\n"
@@ -23,25 +24,41 @@ message_09 = "9.MA rejected Flex-Offer."
 message_10 = "9.MA accepted Flex-Offer."
 
 class Environment():
-    #inputs = data_import("ComOpt.xlsm")
-    def __init__(self, data, seed=None, name=None):
+    """ Class for the models environment.
+        Within an environment agent instances of various types (e.g. Market-, Trading-, EMS-Agents) gets created and stored,
+        the simulation gets proceeded stepwise and the simulation steps get tracked.
+    Args:
+        data:   a dictionary that provides timeseries and parameter values for the simulation. dictionary gets created by the function "data_import".
+                keys and items of data: {"active_EMS": active_EMS, "ems_ts":ems_ts, "ems_p":ems_p, "MA_ts":MA_ts, "MA_param":MA_param, "TA_ts":TA_ts, "TA_param":TA_param}
+        seed (optional, default:datetime): seed for the random number generators.
+        name (optional, default:None): parameter to specify an environment by a given name.
+    Attributes:
+        running (default:True): binary variable that indicates the simulation status.
+        activate_ems:   number of ems that are included in model. active ems agents can be attached or removed within the input excel file.
+        running: a bool variable that is used as the on/off condition within the function "run_model".
+        steps: indicates the proceeds of the model.
+    """
+    def __init__(self, data:"dict", seed=None, name:"str"=None):
+        ''' Creates and stores environment instances.'''
         self.name = name
         self.running = True
         self.steps = 0
         self.data = data
 
-        # simple list that holds AGENT INSTANCES
+        # A simple list that holds EMS-INSTANCES.
         self.EMS = []
-        self.MA = MarketAgent(data=self.data, agent_id="MA", environ=self, )
-        self.TA = TradingAgent(data=self.data, agent_id="TA", environ=self)
+        self.MA = MarketAgent(agent_id="MA", environ=self, timeseries=self.data["MA_ts"], parameters=self.data["MA_param"])
+        self.TA = TradingAgent(agent_id="TA", environ=self, timeseries=self.data["TA_ts"], parameters=self.data["TA_param"])
 
-        # str-list with NAMES OF THE AGENTS: "a01","a02","a03"...
+        # A str-list with NAMES OF THE EMS.(e.g."a01","a02","a03").
         self.active_EMS = data["active_EMS"]
+
+        # The EMS-agent instances gets created.
         for agent in self.active_EMS:
             self.EMS.append(EMS(agent_id=agent, environ=self,
                     timeseries=self.data["ems_ts"][agent],
-                    params=self.data["ems_p"][agent]))
-        # SEED
+                    parameters=self.data["ems_p"][agent]))
+
         if seed is None:
             self.seed = dt.datetime.now()
         else:
@@ -51,32 +68,55 @@ class Environment():
         return
 
     def reset_ts(self):
+        ''' Setter method to erease the ems agents timeseries data.'''
         for agent in self.EMS:
             agent.ts[:,4:] = 0
         return
 
     def run_model(self):
-        """ Run the model until the end condition is reached."""
+        ''' Run the model until the end condition is reached.'''
         while self.running:
             self.step()
         return
 
     def step(self):
+        ''' Gets called within run_opt.py and triggers the FIRST event within the model simulation sequence.'''
         self.TA.step()
-        self.steps = 0
+        self.steps += 1
         pass
 
 class MarketAgent(Agent):
+    # Flexibility Requesting Party
+    ''' The market agent (MA) represents external agents that have a need for flexibility (for example, an energy supplier or a network operator).
+    Args:
+        agent_id:   unique name of each EMS entity. gets automatically assigned within instantiation.
+        environ:    every agent "knows" the environment he lives in. gets automatically assigned within instantiation.
 
-    def __init__(self, agent_id, environ, data):
+    Attributes:
+        ts:          holds MA timeseries data that gets specified within the input excel file. Can also be called via data["MA_ts"].
+        param:       holds TA parameter data that gets specified within the input excel file. Can also be called via data["MA_param"]
+        req_cnt:     counter variable that gets used to mark Flex-Request-objects.
+        prognosis:   a dictionary with keys and Prognosis-Objects as items according to the respective prognosis type that the MA receives from the TA.
+                     (e.g. {"base": Prognosis.type("base")})
+                     => self.prognosis[name of prognosis]
+        res_price:   MAs reservation price for the requested flexibility. gets calculated within the function "post_flex_order" by multiplying the requested negative and positive
+                     flex energy amounts with the given balance market price prediction that the MA stores within MA.ts.loc[:,"bm_neg_price"] and MA.ts.loc[:,"bm_pos_price"].
+    '''
+
+    def __init__(self, agent_id, environ, timeseries, parameters):
+        ''' Creates an instance of the Class MarketAgent. Inherits from the Class Agent '''
         super().__init__(agent_id, environ)
-        self.ts = data["MA_ts"]
-        self.param = data["MA_param"]
+        self.ts = timeseries
+        self.param = parameters
         self.req_cnt = 0
         self.prognosis = dict()
         self.res_price = 0
+        return
 
-    def post_flex_request(self, prognosis_type, prognosis):
+    def post_flex_request(self, prognosis_type: "str", prognosis: "Prognosis-Object"):
+        ''' Callback function that gets called within TAs function "post_prognosis()". Transmits a Flex-Request-Object to the TA in return for a Prognosis-Object.
+            Amount of requested energy gets equally divided and the shares then later gets passed to the active EM-Systems.
+        '''
         flex_req = FlexReq()
         if prognosis_type == "base":
             self.prognosis["base"] = prognosis
@@ -88,6 +128,7 @@ class MarketAgent(Agent):
         return flex_req
 
     def post_flex_order(self, flex_offer):
+        ''' Callback function that gets called within TAs function "post_flex_offer()". Transmits a Flex-Order-Object to the TA in return for a Flex-Offer-Object.'''
         for t in self.ts.index:
             self.res_price += self.ts.loc[t,"req_neg"] * self.ts.loc[t,"bm_neg_price"] + \
                             self.ts.loc[t,"req_pos"] * self.ts.loc[t,"bm_pos_price"]
@@ -98,11 +139,39 @@ class MarketAgent(Agent):
         return print ("MA reservation price: {}".format(self.res_price))
 
 class TradingAgent(Agent):
+    """ Aggregator-type like entity who acts as an intermediate agent between an the market agent and the prosumer agents (represented through EMS).
+        Collects, aggregates and trades flexibility.
+    Args:
+        agent_id:   unique name of each EMS entity. gets automatically assigned within instantiation.
+        environ:    every agent "knows" the environment he lives in. gets automatically assigned within instantiation.
 
-    def __init__(self, data, agent_id, environ):
+    Attributes:
+        ts:         holds TA timeseries data that gets specified within the input excel file. Can also be called via data["TA_ts"].
+        param:      holds TA parameter data that gets specified within the input excel file. Can also be called via data["TA_param"]
+        UDI_events: a dictionary with keys and items according to the respective UDI-events type that the TA receives from its EM-Systems.
+                    e.g. {"baselines": (EMS[0].UDIevent.type("base"), EMS[1].UDIevent.type("base"),..)}
+                            => for every UDI-Event-Type there's one UDI-Event per agent
+                            => UDI-Event-Objects are callable through: self.UDI_events[name of the UDI-Event][ems.agent_id]
+                    UDI-Events-Objects gets instaniated by the EM-Systems and gets stored within the TAs scope by calling TAs function "post_device_message()",
+                    which has the EM-System function "post_UDI_event()" encapsulated as a callback.
+
+        prognosis:  a dictionary with keys and items according to the respective prognosis type that the TA transmits from the TA.(e.g. {"base": Prognosis.type("base")})
+        prognosis_cnt: counter variable that gets used to identify Flex-Request-objects.
+        flex_req:   a dictionary with keys and Flex-Request-Objects as items according to the respective Flex-Requests that the MA has sent to the TA.
+                    => Flex-Request-Objects are callable through: self.flex_req[name of the Flex-request], e.g. self.flex_req[]
+                    Flex-Request-objects gets instaniated by the MA and gets stored into the TAs scope by calling TAs function "post_prognosis()",
+                    which has the MAs function "post_flex_request()"" encapsulated as a callback.
+        flex_offers: a dictionary with keys and Flex-offer-Objects as items, according to the respective Flex-Offers that the TA has sent to the MA.
+                    Flex-Offer-Objects gets instaniated by the TA by calling TAs function "post_flex_offer()",
+                    which has the MA function "post_flex_order()" encapsulated as a callback.
+        flex_offer_cnt: counter variable that gets used to identify Flex-Offer-objects.
+    """
+
+    def __init__(self, agent_id, environ, timeseries, parameters):
+        ''' Creates an instance of the Class TradingAgent. Inherits from the Class Agent.'''
         super().__init__(agent_id, environ)
-        self.ts = data["TA_ts"]
-        self.param = data["TA_param"]
+        self.ts = timeseries
+        self.param = parameters
         self.UDI_events = dict()
         self.prognosis= dict()
         self.prognosis_cnt = 0
@@ -111,15 +180,8 @@ class TradingAgent(Agent):
         self.flex_offer_cnt = 0
         return
 
-    def step(self):
-        self.post_device_message("base", flex_req=None)
-        self.post_prognosis(prognosis_type="base")
-        self.post_prognosis(prognosis_type="req")
-        self.post_device_message(message_type='req', flex_req=self.flex_req["req"])
-        self.post_flex_offer()
-        return
-
-    def post_device_message(self, message_type, flex_req):
+    def post_device_message(self, message_type: "str", flex_req:"FlexReq-Obj"):
+        ''' Asks EM-Systems for UDI-events, by calling their "post_UDI_event()"-function. Theres no specific "device-message-objects" within the model. '''
         if message_type == "base":
             print(message_01)
             self.UDI_events["baselines"] = {}
@@ -134,6 +196,9 @@ class TradingAgent(Agent):
             return
 
     def post_prognosis(self, prognosis_type):
+        ''' Sends Prognosis-Object to MA and concurrently asks for Flex-Requests, by calling MAs "post_flex_request()"-function.
+            Prognosis-Object gets the sum of all agents purchased and sold energy as value input, as well as the prices and remunerations paid and received for those enery amounts.
+        '''
         if prognosis_type == "base":
             self.prognosis["base"] = Prognosis(id=self.prognosis_cnt, prognosis_type="base")
             self.prognosis_cnt += 1
@@ -142,12 +207,12 @@ class TradingAgent(Agent):
             sell_sum_df = pd.DataFrame()
             sell_rev_df = pd.DataFrame()
             for ems in self.environ.EMS:
-                buy_sum_df[ems.agent_id] = self.environ.TA.UDI_events["baselines"][ems.agent_id].values.loc[:,"buy"]
-                buy_costs_df[ems.agent_id] = self.environ.TA.UDI_events["baselines"][ems.agent_id].values.loc[:,"buy"]\
-                                            .multiply(self.environ.TA.UDI_events["baselines"][ems.agent_id].values.loc[:,"mp"])
-                sell_sum_df[ems.agent_id] = self.environ.TA.UDI_events["baselines"][ems.agent_id].values.loc[:,"sell"]
-                sell_rev_df[ems.agent_id] = self.environ.TA.UDI_events["baselines"][ems.agent_id].values.loc[:,"sell"]\
-                                            .multiply(self.environ.TA.UDI_events["baselines"][ems.agent_id].values.loc[:,"fp"])
+                buy_sum_df[ems.agent_id] = self.UDI_events["baselines"][ems.agent_id].values.loc[:,"buy"]
+                buy_costs_df[ems.agent_id] = self.UDI_events["baselines"][ems.agent_id].values.loc[:,"buy"]\
+                                            .multiply(self.UDI_events["baselines"][ems.agent_id].values.loc[:,"mp"])
+                sell_sum_df[ems.agent_id] = self.UDI_events["baselines"][ems.agent_id].values.loc[:,"sell"]
+                sell_rev_df[ems.agent_id] = self.UDI_events["baselines"][ems.agent_id].values.loc[:,"sell"]\
+                                            .multiply(self.UDI_events["baselines"][ems.agent_id].values.loc[:,"fp"])
             self.prognosis["base"].values["from_grid"] = buy_sum_df.sum(axis=1)
             self.prognosis["base"].values["to_grid"] = sell_sum_df.sum(axis=1)
             self.prognosis["base"].costs = buy_costs_df.sum(axis=1)
@@ -157,6 +222,7 @@ class TradingAgent(Agent):
             return
 
     def calc_flex_req_costs(self):
+        ''' Calculates the difference between UDI-Event "Baseline" and UDI-Event "Request for each agents, and sums up all the costs and revenue losses.'''
         print(message_07)
         total_costs_flex_req = 0
         for i,j,k in zip(self.UDI_events["baselines"], self.UDI_events["req"], self.UDI_events["baselines"].keys()):
@@ -176,6 +242,7 @@ class TradingAgent(Agent):
         return total_costs_flex_req
 
     def post_flex_offer(self):
+        ''' Calls TAs function "calc_flex_req_costs()" in order to come up with an flex_offer_price, and then posts this price to the MA'''
         flex_offer = FlexOffer()
         flex_offer.id = self.flex_offer_cnt
         flex_offer.flex_req_id = self.flex_req["req"].id
@@ -185,17 +252,45 @@ class TradingAgent(Agent):
         self.flex_offer_cnt += 1
         return
 
+    def step(self):
+        '''Actual Sequence of events that occur within one model step. TAs step function gets called upfront within the environments step function.'''
+        self.post_device_message("base", flex_req=None)
+        self.post_prognosis(prognosis_type="base")
+        self.post_prognosis(prognosis_type="req")
+        self.post_device_message(message_type='req', flex_req=self.flex_req["req"])
+        self.post_flex_offer()
+        return
+
 class EMS(Agent):
+    ''' Prosumer-type agents that has several (shiftable) consumer devices like photopholtaics, batteries, EV, etc. attached. Represented as an EM-System, instances of this class holds consumptiona and generation
+        timeseries and device parameters which can be used to calculate (optimal) energy management schedules.
+
+    Args:
+        agent_id:   unique name of each EMS entity. gets automatically assigned within instantiation.
+        environ:    every agent "knows" the environment he lives in. gets automatically assigned within instantiation.
+
+    Attributes:
+        ts:         holds TA timeseries data that gets specified within the input excel file. Can also be called via ems_ts[a[1]].
+        param:      holds TA parameter data that gets specified within the input excel file. Can also be called via data["TA_param"].
+        UDI_events: a dictionary with keys and items according to the respective UDI-events type that the TA receives from its EM-Systems.
+                e.g. {"baselines": (EMS[0].UDIevent.type("base"), EMS[1].UDIevent.type("base"),..)}
+                        => for every UDI-Event-Type there's one UDI-Event per agent
+                        => UDI-Event-Objects are callable through: self.UDI_events[name of the UDI-Event][ems.agent_id]
+                UDI-Events-Objects gets instaniated by the EM-Systems and gets stored within the TAs scope by calling TAs function "post_device_message()",
+                which has the EM-System function "post_UDI_event()" encapsulated as a callback.
+    self.costs: a dictionary that holds the costs output from the milp-optimization for each run
+    '''
     #An agent with gen, battery and load profile
-    def __init__(self, agent_id, environ, timeseries, params):
+    def __init__(self, agent_id, environ, timeseries, parameters):
         super().__init__(agent_id, environ)
         self.ts = timeseries
-        self.params = params
+        self.params = parameters
         self.UDI_events= dict()
         self.UDI_event_id = 0
         self.costs = dict()
 
     def post_UDI_event(self, type, flex_req):
+        ''' Creates an UDI-Event-Object and writes the output of the optimization on it.'''
         id = self.UDI_event_id
         UDI_event = UDIevent(id)
         if type == "base":
