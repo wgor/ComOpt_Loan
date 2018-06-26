@@ -1,5 +1,3 @@
-#% load_ext autoreload
-#% autoreload 2
 from supporters import data_import, data_export, Agent
 from model import Environment, EMS, TradingAgent
 from messages import Prognosis, FlexReq, FlexOffer, FlexOrder, UDIevent
@@ -11,15 +9,8 @@ import xlwings as xw
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import pytest
+import pytest as pt
 
-
-@pytest.fixture
-def setup_env():
-    inputs = data_import("ComOpt.xlsm")
-    env = Environment(data=inputs)
-    return
-
-@setup_env
-def test_step_ends():
-    assert env.step() == "Step Completed"
+def test_answer():
+    assert inc(3) == 5
+    assert 4 == 5

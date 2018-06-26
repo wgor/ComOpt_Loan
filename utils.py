@@ -1,9 +1,12 @@
 import pandas as pd
 import xlwings as xw
 
+
 ######################### CLASSES #########################
 class Agent:
-    """ Base class for a model agent. """
+    """
+    Base class for a model agent.
+    """
     def __init__(self, agent_id, environ):
         """ Create a new agent. """
         self.agent_id = agent_id
@@ -12,6 +15,7 @@ class Agent:
     def step(self):
         """ A single step of the agent. """
         pass
+
 
 ######################### FUNCTIONS #########################
 def data_import(filename):
@@ -28,6 +32,7 @@ def data_import(filename):
         ems_p[a[1]]=wb.sheets[a[1]].range("A1:B14").options(pd.Series,index=True).value
     return {"active_EMS": active_EMS, "ems_ts":ems_ts, "ems_p":ems_p, "MA_ts":MA_ts,
             "MA_param":MA_param, "TA_ts":TA_ts, "TA_param":TA_param}
+
 
 def data_export(file, agents, costs, run_status):
     wb = xw.Book(file)
