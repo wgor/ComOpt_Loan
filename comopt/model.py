@@ -1,17 +1,15 @@
-from utils import data_import, data_export, Agent
-from comopt.usef_messages import Prognosis, FlexReq, FlexOffer, FlexOrder, UDIevent
 from pulp import *
 import random
 import datetime as dt
-import xlwings as xw
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-#% load_ext autoreload
-#% autoreload 2
-#% matplotlib
 
-''' Sequence of modelsteps. Gets printed within simulation output'''
+from comopt.utils import Agent
+from comopt.usef_messages import Prognosis, FlexReq, FlexOffer, UDIevent
+
+"""
+Sequence of modelsteps. Gets printed within simulation output
+"""
 message_01 = "1.TA sent UDI-Event 'Baseline' to its attached EM-Systems.\n"
 message_02 = "2.EM-System sent UDI-Event 'Baseline' to its attached TA."
 message_03 = "3.TA sent prognosis with baseschedule to the MA.\n"
@@ -92,7 +90,7 @@ class Environment():
 
     def step(self):
         """
-        Gets called within run_opt.py and triggers the FIRST event within the model simulation sequence.
+        Gets called within run_local.py and triggers the FIRST event within the model simulation sequence.
         """
         self.TA.step()
         self.steps += 1
@@ -450,5 +448,5 @@ class EMS(Agent):
             self.ts.loc[t, "batt_flex_down"] = cap[t].varValue - self.params.loc["thres_down"]
         ## save actual batt cap for next period
         # lastcap = cap[max(self.ts.index)].varValue
-        data_export("ComOpt.xlsm", self, run_costs, run_status)
+        # data_export("ComOpt.xlsm", self, run_costs, run_status)
         return self.ts, run_costs
