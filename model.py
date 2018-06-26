@@ -83,7 +83,7 @@ class Environment():
         ''' Gets called within run_opt.py and triggers the FIRST event within the model simulation sequence.'''
         self.TA.step()
         self.steps += 1
-        pass
+        return "Step Completed"
 
 class MarketAgent(Agent):
     # Flexibility Requesting Party
@@ -212,7 +212,8 @@ class TradingAgent(Agent):
                                             .multiply(self.UDI_events["baselines"][ems.agent_id].values.loc[:,"mp"])
                 sell_sum_df[ems.agent_id] = self.UDI_events["baselines"][ems.agent_id].values.loc[:,"sell"]
                 sell_rev_df[ems.agent_id] = self.UDI_events["baselines"][ems.agent_id].values.loc[:,"sell"]\
-                                            .multiply(self.UDI_events["baselines"][ems.agent_id].values.loc[:,"fp"])
+                                            .multiply(self.
+                                            UDI_events["baselines"][ems.agent_id].values.loc[:,"fp"])
             self.prognosis["base"].values["from_grid"] = buy_sum_df.sum(axis=1)
             self.prognosis["base"].values["to_grid"] = sell_sum_df.sum(axis=1)
             self.prognosis["base"].costs = buy_costs_df.sum(axis=1)

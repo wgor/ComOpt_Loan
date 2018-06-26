@@ -22,9 +22,11 @@ if __name__ == '__main__':
 # %%
 
 
+import sys
+sys.path.append('D:/CWI/ComOPT/ComOPT_model/ComOpt')
 
-
-
+import sys
+print(sys.path)
 
 
 
