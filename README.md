@@ -12,7 +12,18 @@ A simulation is executed as a Markov Decision Process from the perspective of on
 - Flexibility Requesting Party (FRP)
 
 
-## Instructions
+## Build & Run
+
+### Dependencies:
+
+* Make a virtual environment: `python3.6 -m venv comopt-venv` or use a different tool like `mkvirtualenv`. You can also use
+  an [Anaconda distribution](https://conda.io/docs/user-guide/tasks/manage-environments.html) as base.
+* Activate it, e.g.: `source comopt-venv/bin/activate`
+* Install the `comopt` package and dependencies:
+
+      python setup.py [develop|install]
+      
+### Demo instructions
 
 1) Open Excel, click on "Clear Results"-Button.
 2) Run run_opt.py from folder.
