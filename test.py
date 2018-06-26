@@ -10,3 +10,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import pytest as pt
+
+def test_answer():
+    assert inc(3) == 5
+    assert 4 == 5
+    +  where 4 = inc(3)
