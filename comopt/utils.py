@@ -1,5 +1,4 @@
 import pandas as pd
-import xlwings as xw
 
 
 ######################### CLASSES #########################
@@ -7,6 +6,7 @@ class Agent:
     """
     Base class for a model agent.
     """
+
     def __init__(self, agent_id, environ):
         """ Create a new agent. """
         self.agent_id = agent_id
