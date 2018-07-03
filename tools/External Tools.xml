@@ -1,0 +1,9 @@
+<toolSet name="External Tools">
+  <tool name="Black" description="Black is the uncompromising Python code formatter." showInMainMenu="true" showInEditor="true" showInProject="true" showInSearchPopup="true" disabled="false" useConsole="true" showConsoleOnStdOut="false" showConsoleOnStdErr="false" synchronizeAfterRun="true">
+    <exec>
+      <option name="COMMAND" value="D:\Anaconda3\envs\bvp-venv\Scripts\black.exe" />
+      <option name="PARAMETERS" value="&quot;D:\My Documents\Seita\Web service\Git\BVP\bvp&quot;" />
+      <option name="WORKING_DIRECTORY" value="D:/Anaconda3/envs/bvp-venv/Scripts" />
+    </exec>
+  </tool>
+</toolSet>

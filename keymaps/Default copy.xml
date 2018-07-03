@@ -8,4 +8,11 @@
     <keyboard-shortcut first-keystroke="ctrl y" />
   </action>
   <action id="EditorDeleteLine" />
+  <action id="GotoDeclaration">
+    <mouse-shortcut keystroke="control button1" />
+    <mouse-shortcut keystroke="button2" />
+  </action>
+  <action id="Tool_External Tools_Black">
+    <keyboard-shortcut first-keystroke="ctrl b" />
+  </action>
 </keymap>
