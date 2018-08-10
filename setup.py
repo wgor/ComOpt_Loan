@@ -7,9 +7,7 @@ setup(
     version="0.1",
     install_requires=[
         "pandas>=0.22.0",
-        "xlwings",
         "pulp",
-        "pypiwin32",
         "matplotlib",
     ],
     setup_requires=["pytest-runner"],
