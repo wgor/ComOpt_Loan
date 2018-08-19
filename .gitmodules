@@ -1,0 +1,6 @@
+[submodule "ComOpt_Loan"]
+	path = ComOpt_Loan
+	url = https://github.com/wgor/ComOpt_Loan
+[submodule "comopt_with_app"]
+	path = comopt_with_app
+	url = https://github.com/wgor/ComOpt_Loan
