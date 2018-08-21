@@ -2,7 +2,7 @@ from utils import data_import
 from globals import *
 from model import *
 from model import Environment
-from styles import styles
+from comopt_with_app.ui import styles
 
 import dash
 from dash.dependencies import Input, Output, State

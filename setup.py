@@ -6,6 +6,7 @@ setup(
     keywords=["smart grid", "renewables", "balancing", "energy loans"],
     version="0.1",
     install_requires=[
+        "dash",
         "pandas>=0.22.0",
         "pulp",
         "matplotlib",

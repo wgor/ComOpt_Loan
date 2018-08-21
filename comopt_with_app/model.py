@@ -440,7 +440,7 @@ class TradingAgent(Agent):
             self.central_optimization("FLEX_REQ")
             self.post_flex_offer()
 
-        if self.optimization_mode == "flex-split":
+        elif self.optimization_mode == "flex-split":
             print("----------- Optimization Mode: FLEX-SPLIT -----------")
             self.post_device_message("BASE", flex_req=None)
             self.post_prognosis(prognosis_type="BASE")
@@ -516,6 +516,8 @@ class TradingAgent(Agent):
                 self.flex_request_split()
             self.calc_stats()
             self.post_flex_offer()
+        else:
+            print("Not recognized optimization mode: %s." % self.optimization_mode)
         return
 #------------------------------------------------------------------------------ EMS ----------------------------------------------------------------------------------------#
 class EMS(Agent):

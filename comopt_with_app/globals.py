@@ -1,4 +1,8 @@
-import pandas as pd
+"""
+What is this for? Annotate.
+"""
+
+
 global_layer = ""
 global_offer_names = ["BASE","OFFER_1","OFFER_2","OFFER_3","OFFER_4","OFFER_5"]
 global_req_names = ["REQ_1","REQ_2","REQ_3","REQ_4","REQ_5",]
