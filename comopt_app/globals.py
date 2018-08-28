@@ -1,5 +1,5 @@
-import pandas as pd
-from utils import data_import
+from comopt_app.utils import data_import
+
 
 # Data imported from excel  and used in app
 excel_input_data = data_import("input_data.xlsx")

@@ -1,7 +1,3 @@
-import numpy as np
-import pandas as pd
-import collections
-
 class Prognosis:
     '''Prognosis messages are used to communicate A-plans and D-prognoses between USEF participants.
     values: "array with multiple flex options", price: "int or arr", flex_req_id:"int", con_group:"int" '''

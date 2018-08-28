@@ -6,14 +6,19 @@ setup(
     keywords=["smart grid", "renewables", "balancing", "energy loans"],
     version="0.1",
     install_requires=[
-        "dash",
+        "dash",  # ==0.21.1
+        "plotly",  # ==2.7.0
+        "dash-core-components==0.21.0rc1",  # ==0.21.0rc1
+        "dash-html-components",  # ==0.11.0
+        "dash-table-experiments",  # ==0.6.0
         "pandas>=0.22.0",
-        "pulp",
-        "matplotlib",
+        "xlrd>=0.9.0",
+        "pulp==1.6.8",
+        "matplotlib==2.2.2",
     ],
     setup_requires=["pytest-runner"],
     tests_require=["pytest"],
-    packages=["comopt"],
+    packages=["comopt_app"],
     include_package_data=True,
     # license="Apache",
     classifiers=[

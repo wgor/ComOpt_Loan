@@ -1,7 +1,6 @@
 import pandas as pd
-import xlwings as xw
-import copy
 import pulp
+
 
 def battery_solver(name,
            multi_ix_df,

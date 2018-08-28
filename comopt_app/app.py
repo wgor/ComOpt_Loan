@@ -1,21 +1,15 @@
-from utils import data_import
-from globals import *
-from model.environment import *
-from ui.styles import styles
-# Dash packages
+import json as json
+
 import dash
 from dash.dependencies import Input, Output, State
 import dash_core_components as dcc
 import dash_html_components as html
-import dash_table_experiments as dt
+import dash_table_experiments as dash_table
 import plotly.graph_objs as go
-import pandas as pd
-import copy
-import json as json
-import random
-import flask
-#import glob
-#import os
+
+from comopt_app.model.environment import *
+from comopt_app.ui.styles import styles
+
 
 ##################################### INPUTS #################################################################
 
@@ -91,7 +85,7 @@ html.Div(id="main-container",className="container-fluid rounded",
                         ]),#TOGGLE WINDOW
                         html.Div(style={'display': 'none'},children=[
                         #DUMMY TABLE
-                        dt.EditableTable(
+                        dash_table.EditableTable(
                         id='editable-table',
                         dataframe = pd.DataFrame().to_dict()
                         ),
@@ -558,7 +552,7 @@ def profile_switch(demand_profile, generation_profile):
             ),
         xaxis=dict(
             title='Timesteps',
-            autotick=True,
+            autorange=True,
             ticks='outside',
             tick0=0,
             dtick=1,
@@ -571,7 +565,7 @@ def profile_switch(demand_profile, generation_profile):
         ),
         yaxis=dict(
             title="pdf",
-            autotick=True,
+            autorange=True,
             ticks='outside',
             tick0=0,
             dtick=5,
@@ -654,9 +648,13 @@ def run_name_update(run_name_update):
               )
 
 def scenarios_tabs_update(active_sc):
-    active_sc = json.loads(active_sc)
+    try:
+        active_sc = json.loads(active_sc)
+    except TypeError:
+        pass
+
     tabs = dcc.Tabs(
-            tabs=[{'label': i, 'value': i} for i in  active_sc],
+            tabs=[{'label': i, 'value': i} for i in active_sc],
             value="SC_1",
             id='sc-tabs'
             ),
@@ -783,7 +781,7 @@ def table_output(active_ems, active_sc, last_clicked, ta_click, ma_click,
                     tabledata = new_columns
                     global_parameter_dict[selected_sc][last_clicked] = tabledata
 
-    table = dt.EditableTable(
+    table = dash_table.EditableTable(
                         base_styles="numeric",
                         id="editable-table",
                         editable=True,
@@ -1273,7 +1271,7 @@ def upper_left_inside_update(run_button_clicked, offer_slider_value, tab_name, s
             ),
             yaxis=dict(
                 title="kWh",
-                autotick=True,
+                autorange=True,
                 ticks='outside',
                 tick0=0,
                 dtick=2,
@@ -1329,7 +1327,7 @@ def upper_left_inside_update(run_button_clicked, offer_slider_value, tab_name, s
             ),
             yaxis=dict(
                 title="Euro",
-                autotick=True,
+                autorange=True,
                 ticks='outside',
                 tick0=0,
                 dtick=1,
@@ -1604,7 +1602,7 @@ def lower_left_inside_update(run_button_clicked, offer_slider_value, tab_name, s
         ),
         yaxis=dict(
             title="kWh",
-            autotick=True,
+            autorange=True,
             ticks='outside',
             tick0=0,
             dtick=5,
@@ -1618,7 +1616,7 @@ def lower_left_inside_update(run_button_clicked, offer_slider_value, tab_name, s
 
         yaxis2=dict(
             title="kWh",
-            autotick=True,
+            autorange=True,
             ticks='outside',
             tick0=0,
             dtick=2,
@@ -1788,7 +1786,7 @@ def base_battery_update(run_button_clicked, tab_name, scenario_name):
         ),
         yaxis=dict(
             title="kWh",
-            autotick=True,
+            autorange=True,
             ticks='outside',
             tick0=0,
             dtick=5,
@@ -1802,7 +1800,7 @@ def base_battery_update(run_button_clicked, tab_name, scenario_name):
 
         yaxis2=dict(
             title="kWh",
-            autotick=True,
+            autorange=True,
             ticks='outside',
             tick0=0,
             dtick=2,
@@ -1916,7 +1914,7 @@ def price_plots_update(run_button_clicked, offer_slider_value, tab_name, scenari
         ),
         yaxis=dict(
             title="Euro/kWh",
-            autotick=True,
+            autorange=True,
             ticks='outside',
             tick0=0,
             dtick=5,
@@ -1985,4 +1983,4 @@ def generate_table(run_button_clicked, offer_slider_value, tab_name, scenario_na
     return generate_table(df)
 ###############################################################################################################################
 if __name__ == '__main__':
-   app.run_server(debug=True)
+   app.run_server(debug=False, port=9100)

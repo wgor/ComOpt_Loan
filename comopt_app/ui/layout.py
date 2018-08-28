@@ -1,21 +1,14 @@
-from ui.utils import data_import
-from globals import *
-from model.environment import *
-from ui.styles import styles
-from ui.layout import *
-from app import app
-# Dash packages
 import dash
 from dash.dependencies import Input, Output, State
 import dash_core_components as dcc
 import dash_html_components as html
-import dash_table_experiments as dt
+import dash_table_experiments as dash_table
 import plotly.graph_objs as go
 import pandas as pd
-import copy
-import json as json
-import random
-import flask
+
+from comopt_app.ui.layout import *
+from comopt_app.app import app
+
 
 app.layout = html.Div(style=styles['main'],children=[#app.layout
 ############################################## TOP ROW ############################################################
@@ -78,7 +71,7 @@ html.Div(id="main-container",className="container-fluid rounded",
                         ]),#TOGGLE WINDOW
                         html.Div(style={'display': 'none'},children=[
                         #DUMMY TABLE
-                        dt.EditableTable(
+                        dash_table.EditableTable(
                         id='editable-table',
                         dataframe = pd.DataFrame().to_dict()
                         ),

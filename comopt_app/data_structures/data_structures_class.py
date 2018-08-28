@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 class deviation_cost_curve:
     '''
     function_type:

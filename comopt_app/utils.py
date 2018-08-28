@@ -1,6 +1,5 @@
 import pandas as pd
-import xlwings as xw
-import copy
+
 
 class Agent:
     """ Base class for a model agent. """

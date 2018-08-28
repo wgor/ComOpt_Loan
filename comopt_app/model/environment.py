@@ -1,14 +1,10 @@
-from model.market_agent import *
-from model.trading_agent import *
-from model.ems import *
-from globals import *
-#from app import *
-import random
-import datetime as dt
-import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import pickle
+
+from comopt_app.model.market_agent import *
+from comopt_app.model.trading_agent import *
+from comopt_app.model.ems import *
+from comopt_app.globals import *
+
 
 class Environment():
     """ Model environment class.

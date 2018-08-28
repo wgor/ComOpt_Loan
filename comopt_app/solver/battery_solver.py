@@ -1,6 +1,6 @@
 import pandas as pd
-import copy
 import pulp
+
 
 def battery_solver(name,
            multi_ix_df,
