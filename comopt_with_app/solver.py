@@ -12,6 +12,7 @@ def solver(name,
            type,
            mode,
            active_ems, base_net):
+    """Please fill this out and explain function parameters."""
     # Solver needs demand and generation and parameters and flex_request
     timeseries = pd.DataFrame(multi_ix_df)
     parameter = pd.DataFrame(parameter)
