@@ -45,8 +45,10 @@ class Environment:
         self.max_horizon = None
         self.simulation_runtime_index = initialize_index(start, end, resolution)
         self.step_now = 1
-        self.total_steps = (end-start-max(input_data["TA horizon"],input_data["MA horizon"]))/resolution
-        self.flow_unit_multiplier=input_data["Flow unit multiplier"]
+        self.total_steps = (
+            end - start - max(input_data["TA horizon"], input_data["MA horizon"])
+        ) / resolution
+        self.flow_unit_multiplier = input_data["Flow unit multiplier"]
         # self.commitment_snapshots = commitment_snapshots(start=start, end=end, ta_horizon=input_data["TA horizon"], ma_horizon=input_data["MA horizon"])
 
         # Set up agents
@@ -69,14 +71,13 @@ class Environment:
             retail_price=10,
             balancing_opportunities=input_data["Balancing opportunities"],
             deviation_prices=input_data["MA Deviation Prices"],
-            prognosis_policy = input_data["MA prognosis policy"],
+            prognosis_policy=input_data["MA prognosis policy"],
             prognosis_parameter=input_data["MA prognosis parameter"],
-            flexrequest_policy = input_data["MA flexrequest policy"],
+            flexrequest_policy=input_data["MA flexrequest policy"],
             flexrequest_parameter=input_data["MA flexrequest parameter"],
             sticking_factor=input_data["MA flexrequest parameter"]["Sticking factor"],
             deviation_multiplicator=input_data["MA Deviation Multiplicator"],
-            imbalance_market_costs=input_data["MA imbalance_market_costs"]
-
+            imbalance_market_costs=input_data["MA imbalance_market_costs"],
         )
         self.trading_agent = TradingAgent(
             name="Trading agent",
@@ -89,53 +90,70 @@ class Environment:
             prognosis_policy=input_data["TA prognosis policy"],
             prognosis_rounds=input_data["Prognosis rounds"],
             prognosis_parameter=input_data["TA prognosis parameter"],
-            prognosis_learning_parameter = input_data["Q parameter prognosis"],
+            prognosis_learning_parameter=input_data["Q parameter prognosis"],
             flexrequest_policy=input_data["TA flexrequest policy"],
             flexrequest_rounds=input_data["Flexrequest rounds"],
             flexrequest_parameter=input_data["TA flexrequest parameter"],
-            flexrequest_learning_parameter = input_data["Q parameter flexrequest"],
+            flexrequest_learning_parameter=input_data["Q parameter flexrequest"],
         )
         # Set up planboard
         self.plan_board = PlanBoard(start=start, end=end, resolution=resolution)
-        #Create message log for each time period
-        self.plan_board.create_message_logs(start=start, end=end, resolution=resolution, environment=self)
+        # Create message log for each time period
+        self.plan_board.create_message_logs(
+            start=start, end=end, resolution=resolution, environment=self
+        )
 
         # Set up prognosis negotiation log 1
-        self.plan_board.prognosis_negotiation_log_1 = create_negotiation_log(start=self.start,
-                                                                            end=self.end -
-                                                                                self.resolution -
-                                                                                max(self.market_agent.flex_trade_horizon,
-                                                                                    self.trading_agent.prognosis_horizon),
-                                                                            resolution=self.resolution,
-                                                                            rounds_total=input_data["Prognosis rounds"])
+        self.plan_board.prognosis_negotiation_log_1 = create_negotiation_log(
+            start=self.start,
+            end=self.end
+            - self.resolution
+            - max(
+                self.market_agent.flex_trade_horizon,
+                self.trading_agent.prognosis_horizon,
+            ),
+            resolution=self.resolution,
+            rounds_total=input_data["Prognosis rounds"],
+        )
 
         # Set up prognosis negotiation log 2
-        self.plan_board.prognosis_negotiation_log_2 = create_negotiation_log(start=self.start,
-                                                                            end=self.end -
-                                                                                self.resolution -
-                                                                                max(self.market_agent.flex_trade_horizon,
-                                                                                    self.trading_agent.prognosis_horizon),
-                                                                            resolution=self.resolution,
-                                                                            rounds_total=input_data["Prognosis rounds"])
+        self.plan_board.prognosis_negotiation_log_2 = create_negotiation_log(
+            start=self.start,
+            end=self.end
+            - self.resolution
+            - max(
+                self.market_agent.flex_trade_horizon,
+                self.trading_agent.prognosis_horizon,
+            ),
+            resolution=self.resolution,
+            rounds_total=input_data["Prognosis rounds"],
+        )
 
         # Set up flexrequest negotiation log 1
-        self.plan_board.flexrequest_negotiation_log_1 = create_negotiation_log(start=self.start,
-                                                                            end=self.end -
-                                                                                self.resolution -
-                                                                                max(self.market_agent.flex_trade_horizon,
-                                                                                    self.trading_agent.prognosis_horizon),
-                                                                            resolution=self.resolution,
-                                                                            rounds_total=input_data["Flexrequest rounds"])
+        self.plan_board.flexrequest_negotiation_log_1 = create_negotiation_log(
+            start=self.start,
+            end=self.end
+            - self.resolution
+            - max(
+                self.market_agent.flex_trade_horizon,
+                self.trading_agent.prognosis_horizon,
+            ),
+            resolution=self.resolution,
+            rounds_total=input_data["Flexrequest rounds"],
+        )
 
         # Set up flexrequest negotiation log 2
-        self.plan_board.flexrequest_negotiation_log_2 = create_negotiation_log(start=self.start,
-                                                                            end=self.end -
-                                                                                self.resolution -
-                                                                                max(self.market_agent.flex_trade_horizon,
-                                                                                    self.trading_agent.prognosis_horizon),
-                                                                            resolution=self.resolution,
-                                                                            rounds_total=input_data["Flexrequest rounds"])
-
+        self.plan_board.flexrequest_negotiation_log_2 = create_negotiation_log(
+            start=self.start,
+            end=self.end
+            - self.resolution
+            - max(
+                self.market_agent.flex_trade_horizon,
+                self.trading_agent.prognosis_horizon,
+            ),
+            resolution=self.resolution,
+            rounds_total=input_data["Flexrequest rounds"],
+        )
 
     def run_model(self):
         """Run the model until the end condition is reached."""
@@ -153,7 +171,7 @@ class Environment:
             )
 
         while self.now <= last_step_due_to_agent_horizons:
-            #print("Simulation progress: %s" % self.now)
+            # print("Simulation progress: %s" % self.now)
             if self.now.hour == 0 and self.now.minute == 0:
                 print("Simulation progress: day %s" % self.now.day)
             self.step()

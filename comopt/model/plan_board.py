@@ -28,18 +28,37 @@ class PlanBoard:
         #     else:
         #         self.message_log[timeperiod][key].loc[message.start, message.__class__.__name__] = "ID " + str(message.id), message
 
-    def create_message_logs(self, start: datetime, end: datetime, resolution: timedelta, environment):
+    def create_message_logs(
+        self, start: datetime, end: datetime, resolution: timedelta, environment
+    ):
         self.message_logs = dict()
-        ems_names = [environment.ems_agents[x].name for x, ems in enumerate(environment.ems_agents)]
+        ems_names = [
+            environment.ems_agents[x].name
+            for x, ems in enumerate(environment.ems_agents)
+        ]
         ems_columns = ["DeviceMessage", "UdiEvent"]
-        columns = ["Prognosis Request", "Prognosis", "FlexRequest", "FlexOffer", "FlexOrder"]
-        periods = int(((end-start))/resolution)
+        columns = [
+            "Prognosis Request",
+            "Prognosis",
+            "FlexRequest",
+            "FlexOffer",
+            "FlexOrder",
+        ]
+        periods = int(((end - start)) / resolution)
 
         self.message_logs[next] = dict()
-        self.message_logs[next]["TA"] = initialize_df(columns=columns, start=start, end=end, resolution=resolution)
-        self.message_logs[next]["MA"] = initialize_df(columns=columns, start=start, end=end, resolution=resolution)
-        self.message_logs[next]["EMS"] = {ems:initialize_df(columns=ems_columns, start=start, end=end, resolution=resolution) for ems in ems_names}
-
+        self.message_logs[next]["TA"] = initialize_df(
+            columns=columns, start=start, end=end, resolution=resolution
+        )
+        self.message_logs[next]["MA"] = initialize_df(
+            columns=columns, start=start, end=end, resolution=resolution
+        )
+        self.message_logs[next]["EMS"] = {
+            ems: initialize_df(
+                columns=ems_columns, start=start, end=end, resolution=resolution
+            )
+            for ems in ems_names
+        }
 
     # def store_negotiation_results(self, negotiation_results=None, key: datetime):
     #     for key in keys:

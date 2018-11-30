@@ -54,48 +54,75 @@ class EMS(Agent):
             )
         ]  # The initial commitment simply states prices for consuming and producing (i.e. for deviating from 0)
 
-        #TODO: Loop and refactor
-        #TODO: use planboard messages insteat of instance variable
-        self.device_messages = initialize_series(start=self.environment.start,end=self.environment.end,
-                                                resolution=self.environment.resolution, data=0)
+        # TODO: Loop and refactor
+        # TODO: use planboard messages insteat of instance variable
+        self.device_messages = initialize_series(
+            start=self.environment.start,
+            end=self.environment.end,
+            resolution=self.environment.resolution,
+            data=0,
+        )
 
-        self.targeted_flex = initialize_series(start=self.environment.start,end=self.environment.end,
-                                                resolution=self.environment.resolution, data=0)
+        self.targeted_flex = initialize_series(
+            start=self.environment.start,
+            end=self.environment.end,
+            resolution=self.environment.resolution,
+            data=0,
+        )
 
-        self.prognosed_over_horizons = DataFrame(index=self.commitments[0].constants.index,
-                                        columns=["Load", "Generation", "Battery", "Buffer"])
+        self.prognosed_over_horizons = DataFrame(
+            index=self.commitments[0].constants.index,
+            columns=["Load", "Generation", "Battery", "Buffer"],
+        )
 
-        self.prognosed_power_per_device = DataFrame(index=self.commitments[0].constants.index,
-                                        columns=["Load", "Generation", "Battery", "Buffer"])
+        self.prognosed_power_per_device = DataFrame(
+            index=self.commitments[0].constants.index,
+            columns=["Load", "Generation", "Battery", "Buffer"],
+        )
 
-        self.planned_over_horizons = DataFrame(index=self.commitments[0].constants.index,
-                                        columns=["Load", "Generation", "Battery", "Buffer"])
+        self.planned_over_horizons = DataFrame(
+            index=self.commitments[0].constants.index,
+            columns=["Load", "Generation", "Battery", "Buffer"],
+        )
 
-        self.planned_power_per_device = DataFrame(index=self.commitments[0].constants.index,
-                                        columns=["Load", "Generation", "Battery", "Buffer"])
+        self.planned_power_per_device = DataFrame(
+            index=self.commitments[0].constants.index,
+            columns=["Load", "Generation", "Battery", "Buffer"],
+        )
 
-        self.realised_over_horizons = DataFrame(index=self.commitments[0].constants.index,
-                                        columns=["Load", "Generation", "Battery", "Buffer"])
+        self.realised_over_horizons = DataFrame(
+            index=self.commitments[0].constants.index,
+            columns=["Load", "Generation", "Battery", "Buffer"],
+        )
 
-        self.realised_power_per_device = DataFrame(index=self.commitments[0].constants.index,
-                                        columns=["Load", "Generation", "Battery", "Buffer"])
+        self.realised_power_per_device = DataFrame(
+            index=self.commitments[0].constants.index,
+            columns=["Load", "Generation", "Battery", "Buffer"],
+        )
 
-        self.flex_over_horizons = DataFrame(index=self.commitments[0].constants.index,
-                                        columns=["Load", "Generation", "Battery", "Buffer"])
+        self.flex_over_horizons = DataFrame(
+            index=self.commitments[0].constants.index,
+            columns=["Load", "Generation", "Battery", "Buffer"],
+        )
         # not used yet
-        self.prognosed_flex_per_device = DataFrame(index=self.commitments[0].constants.index,
-                                        columns=["Load", "Generation", "Battery", "Buffer"])
+        self.prognosed_flex_per_device = DataFrame(
+            index=self.commitments[0].constants.index,
+            columns=["Load", "Generation", "Battery", "Buffer"],
+        )
 
-        self.planned_flex_per_device = DataFrame(index=self.commitments[0].constants.index,
-                                        columns=["Load", "Generation", "Battery", "Buffer"])
+        self.planned_flex_per_device = DataFrame(
+            index=self.commitments[0].constants.index,
+            columns=["Load", "Generation", "Battery", "Buffer"],
+        )
 
-        self.realised_flex_per_device = DataFrame(index=self.commitments[0].constants.index,
-                                        columns=["Load", "Generation", "Battery", "Buffer"])
+        self.realised_flex_per_device = DataFrame(
+            index=self.commitments[0].constants.index,
+            columns=["Load", "Generation", "Battery", "Buffer"],
+        )
 
         self.prognosed_costs_over_horizons = dict()
         self.planned_costs_over_horizons = dict()
         self.realised_costs_over_horizons = dict()
-
 
     def post_udi_event(self, device_message: DeviceMessage) -> UdiEvent:
         """Callback function to have the EMS create and post a UdiEvent."""
@@ -124,9 +151,21 @@ class EMS(Agent):
             commitments, (device_message.start, device_message.end), slice=True
         )
         for c in applicable_commitments:
-            print("EMS: Applicable commitments constants.values:{}".format(c.constants.values))
-        print("EMS: Dev Curve Down: {}".format([c.deviation_cost_curve.gradient_down for c in applicable_commitments]))
-        print("EMS: Dev Curve Up: {}\n".format([c.deviation_cost_curve.gradient_up for c in applicable_commitments]))
+            print(
+                "EMS: Applicable commitments constants.values:{}".format(
+                    c.constants.values
+                )
+            )
+        print(
+            "EMS: Dev Curve Down: {}".format(
+                [c.deviation_cost_curve.gradient_down for c in applicable_commitments]
+            )
+        )
+        print(
+            "EMS: Dev Curve Up: {}\n".format(
+                [c.deviation_cost_curve.gradient_up for c in applicable_commitments]
+            )
+        )
 
         scheduled_power_per_device, costs_per_commitment = device_scheduler(
             device_constraints=device_constraints,
@@ -146,88 +185,160 @@ class EMS(Agent):
 
         # Update flex data
         list_of_device_type_names = list(scheduled_power_per_device.keys())
-        #TODO: further testing and then refactor
+        # TODO: further testing and then refactor
         if self.device_messages_cnt % 2 != 0:
             # Update prognosed_costs_over_horizons
-            self.prognosed_costs_over_horizons[self.environment.now] = costs_per_commitment
+            self.prognosed_costs_over_horizons[
+                self.environment.now
+            ] = costs_per_commitment
             # Update prognosed_over_horizons table
-            self.prognosed_over_horizons.loc[self.environment.now, "Generation"] = scheduled_power_per_device["Generation"].values
-            self.prognosed_over_horizons.loc[self.environment.now, "Load"] = scheduled_power_per_device["Load"].values
+            self.prognosed_over_horizons.loc[
+                self.environment.now, "Generation"
+            ] = scheduled_power_per_device["Generation"].values
+            self.prognosed_over_horizons.loc[
+                self.environment.now, "Load"
+            ] = scheduled_power_per_device["Load"].values
 
             for idx in scheduled_power_per_device[list_of_device_type_names[0]].index:
 
                 # Update prognosed_power_per_device table
-                self.prognosed_power_per_device.loc[idx, "Generation"] = scheduled_power_per_device["Generation"][idx]
-                self.prognosed_power_per_device.loc[idx, "Load"] = scheduled_power_per_device["Load"][idx]
+                self.prognosed_power_per_device.loc[
+                    idx, "Generation"
+                ] = scheduled_power_per_device["Generation"][idx]
+                self.prognosed_power_per_device.loc[
+                    idx, "Load"
+                ] = scheduled_power_per_device["Load"][idx]
 
                 # Update planned_flex_per_device table
-                gen_diff = self.prognosed_power_per_device.loc[idx, "Generation"] - self.planned_power_per_device.loc[idx, "Generation"]
+                gen_diff = (
+                    self.prognosed_power_per_device.loc[idx, "Generation"]
+                    - self.planned_power_per_device.loc[idx, "Generation"]
+                )
                 # print(gen_diff)
                 if isnull(self.planned_flex_per_device.loc[idx, "Generation"]):
                     self.planned_flex_per_device.loc[idx, "Generation"] = gen_diff
                     # print ("g isnull")
                 elif gen_diff > 0:
-                    self.planned_flex_per_device.loc[idx, "Generation"] = self.planned_flex_per_device.loc[idx, "Generation"] + gen_diff
+                    self.planned_flex_per_device.loc[idx, "Generation"] = (
+                        self.planned_flex_per_device.loc[idx, "Generation"] + gen_diff
+                    )
                     # print ("g diff > 0")
                 elif gen_diff < 0:
-                    self.planned_flex_per_device.loc[idx, "Generation"] = gen_diff + self.planned_flex_per_device.loc[idx, "Generation"]
+                    self.planned_flex_per_device.loc[idx, "Generation"] = (
+                        gen_diff + self.planned_flex_per_device.loc[idx, "Generation"]
+                    )
                     # print ("g diff < 0")
-                load_diff = self.prognosed_power_per_device.loc[idx, "Load"] - self.planned_power_per_device.loc[idx, "Load"]
+                load_diff = (
+                    self.prognosed_power_per_device.loc[idx, "Load"]
+                    - self.planned_power_per_device.loc[idx, "Load"]
+                )
                 # print(load_diff)
 
                 if isnull(self.planned_flex_per_device.loc[idx, "Load"]):
                     self.planned_flex_per_device.loc[idx, "Load"] = load_diff
                     # print ("isnull")
                 elif load_diff > 0:
-                    self.planned_flex_per_device.loc[idx, "Load"] = load_diff + self.planned_flex_per_device.loc[idx, "Load"]
+                    self.planned_flex_per_device.loc[idx, "Load"] = (
+                        load_diff + self.planned_flex_per_device.loc[idx, "Load"]
+                    )
                     # print ("load diff > 0")
                 elif load_diff < 0:
-                    self.planned_flex_per_device.loc[idx, "Load"] = self.planned_flex_per_device.loc[idx, "Load"] + load_diff
+                    self.planned_flex_per_device.loc[idx, "Load"] = (
+                        self.planned_flex_per_device.loc[idx, "Load"] + load_diff
+                    )
                     # print ("load diff < 0")
 
-            print("EMS: Prognosed Power per Device: {} \n".format(scheduled_power_per_device))
-            print("EMS: Prognosed Flex per Device: {} \n".format(self.planned_flex_per_device))
+            print(
+                "EMS: Prognosed Power per Device: {} \n".format(
+                    scheduled_power_per_device
+                )
+            )
+            print(
+                "EMS: Prognosed Flex per Device: {} \n".format(
+                    self.planned_flex_per_device
+                )
+            )
         else:
             # Update planned_costs_over_horizons table
-            self.planned_costs_over_horizons[self.environment.now] = costs_per_commitment
+            self.planned_costs_over_horizons[
+                self.environment.now
+            ] = costs_per_commitment
             # Update planned_over_horizons table
-            self.planned_over_horizons.loc[self.environment.now, "Generation"] = scheduled_power_per_device["Generation"].values
-            self.planned_over_horizons.loc[self.environment.now, "Load"] = scheduled_power_per_device["Load"].values
+            self.planned_over_horizons.loc[
+                self.environment.now, "Generation"
+            ] = scheduled_power_per_device["Generation"].values
+            self.planned_over_horizons.loc[
+                self.environment.now, "Load"
+            ] = scheduled_power_per_device["Load"].values
 
             for idx in scheduled_power_per_device[list_of_device_type_names[0]].index:
                 # Update planned_power_per_device table
-                self.planned_power_per_device.loc[idx, "Generation"] = scheduled_power_per_device["Generation"][idx]
-                self.planned_power_per_device.loc[idx, "Load"] = scheduled_power_per_device["Load"][idx]
+                self.planned_power_per_device.loc[
+                    idx, "Generation"
+                ] = scheduled_power_per_device["Generation"][idx]
+                self.planned_power_per_device.loc[
+                    idx, "Load"
+                ] = scheduled_power_per_device["Load"][idx]
                 # Update planned_flex_per_device table
-                gen_diff = (self.planned_power_per_device.loc[idx, "Generation"] - self.prognosed_power_per_device.loc[idx, "Generation"])
+                gen_diff = (
+                    self.planned_power_per_device.loc[idx, "Generation"]
+                    - self.prognosed_power_per_device.loc[idx, "Generation"]
+                )
                 # print(gen_diff)
                 if isnull(self.planned_flex_per_device.loc[idx, "Generation"]):
                     self.planned_flex_per_device.loc[idx, "Generation"] = gen_diff
                     # print ("g isnull")
                 elif gen_diff > 0:
-                    self.planned_flex_per_device.loc[idx, "Generation"] = self.planned_flex_per_device.loc[idx, "Generation"] + gen_diff
+                    self.planned_flex_per_device.loc[idx, "Generation"] = (
+                        self.planned_flex_per_device.loc[idx, "Generation"] + gen_diff
+                    )
                     # print ("g diff > 0")
                 elif gen_diff < 0:
-                    self.planned_flex_per_device.loc[idx, "Generation"] = gen_diff + self.planned_flex_per_device.loc[idx, "Generation"]
+                    self.planned_flex_per_device.loc[idx, "Generation"] = (
+                        gen_diff + self.planned_flex_per_device.loc[idx, "Generation"]
+                    )
                     # print ("g diff < 0")
 
-                load_diff = (self.planned_power_per_device.loc[idx, "Load"] - self.prognosed_power_per_device.loc[idx, "Load"])
+                load_diff = (
+                    self.planned_power_per_device.loc[idx, "Load"]
+                    - self.prognosed_power_per_device.loc[idx, "Load"]
+                )
                 # print(load_diff)
                 if isnull(self.planned_flex_per_device.loc[idx, "Load"]):
                     self.planned_flex_per_device.loc[idx, "Load"] = load_diff
                     # print ("isnull")
                 elif load_diff > 0:
-                    self.planned_flex_per_device.loc[idx, "Load"] = load_diff + self.planned_flex_per_device.loc[idx, "Load"]
+                    self.planned_flex_per_device.loc[idx, "Load"] = (
+                        load_diff + self.planned_flex_per_device.loc[idx, "Load"]
+                    )
                     # print ("load diff > 0")
                 elif load_diff < 0:
-                    self.planned_flex_per_device.loc[idx, "Load"] = self.planned_flex_per_device.loc[idx, "Load"] + load_diff
+                    self.planned_flex_per_device.loc[idx, "Load"] = (
+                        self.planned_flex_per_device.loc[idx, "Load"] + load_diff
+                    )
                     # print ("load diff < 0")
 
-            print("EMS: Planned Power per Device: {} \n".format(scheduled_power_per_device))
-            print("EMS: Planned Flex per Ddevice: {} \n".format(self.planned_flex_per_device))
+            print(
+                "EMS: Planned Power per Device: {} \n".format(
+                    scheduled_power_per_device
+                )
+            )
+            print(
+                "EMS: Planned Flex per Ddevice: {} \n".format(
+                    self.planned_flex_per_device
+                )
+            )
 
-        print("EMS: Planned Flex total: {} \n".format(self.planned_flex_per_device.sum().sum()))
-        print("EMS: Prognosis profile costs: {} ".format(self.prognosed_costs_over_horizons[self.environment.now]))
+        print(
+            "EMS: Planned Flex total: {} \n".format(
+                self.planned_flex_per_device.sum().sum()
+            )
+        )
+        print(
+            "EMS: Prognosis profile costs: {} ".format(
+                self.prognosed_costs_over_horizons[self.environment.now]
+            )
+        )
 
         # Get the cost difference between prognosed baseline and planned flex-request-profile
         planned_costs = costs_per_commitment[0]
@@ -239,22 +350,30 @@ class EMS(Agent):
             elif planned_costs < 0:
                 costs_of_requested_commitment = planned_costs + prognosed_costs
         elif prognosed_costs < 0:
-                costs_of_requested_commitment = planned_costs - prognosed_costs
+            costs_of_requested_commitment = planned_costs - prognosed_costs
 
         planned_deviation_costs = sum(costs_per_commitment[1:])
-        print("EMS: Planned deviation costs over horizon: {} ".format(planned_deviation_costs))
+        print(
+            "EMS: Planned deviation costs over horizon: {} ".format(
+                planned_deviation_costs
+            )
+        )
         # print("EMS: Cost Difference Prognosis - Request: {} ".format(sum(self.prognosed_costs_over_horizons[self.environment.now]) - costs_per_commitment[0]))
         print("EMS: Commitment costs over horizon: {} ".format(costs_per_commitment))
-        print("EMS: Requested commitment costs: {} \n".format(costs_of_requested_commitment))
+        print(
+            "EMS: Requested commitment costs: {} \n".format(
+                costs_of_requested_commitment
+            )
+        )
         # costs_of_requested_commitment = sum(costs_per_commitment)
 
         # Sum the planned power over all devices
         planned_values = array(
-            [item for key,item in scheduled_power_per_device.items()]
+            [item for key, item in scheduled_power_per_device.items()]
         ).sum(axis=0)
 
-        self.device_messages_cnt +=1
-        #print("planned_values: {} ".format(planned_values))
+        self.device_messages_cnt += 1
+        # print("planned_values: {} ".format(planned_values))
         planned_power = initialize_series(
             data=planned_values,
             start=device_message.start,

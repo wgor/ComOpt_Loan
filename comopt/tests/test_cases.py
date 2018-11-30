@@ -9,7 +9,9 @@ from comopt.scenario.ems_constraints import (
     follow_integer_test_profile,
     curtailable_integer_test_profile,
 )
-from comopt.scenario.ma_policies import buy_prognosis_at_random_price_between_0_and_2 as buy_prognosis_policy
+from comopt.scenario.ma_policies import (
+    buy_prognosis_at_random_price_between_0_and_2 as buy_prognosis_policy
+)
 from comopt.scenario.ta_policies import never_sell_prognosis as sell_prognosis_policy
 
 
@@ -33,8 +35,12 @@ def test_message_board_no_prognosis_trade():
         ],
         "Device constraints": [
             [
-                follow_integer_test_profile(start=start, end=end, resolution=resolution),
-                curtailable_integer_test_profile(start=start, end=end, resolution=resolution),
+                follow_integer_test_profile(
+                    start=start, end=end, resolution=resolution
+                ),
+                curtailable_integer_test_profile(
+                    start=start, end=end, resolution=resolution
+                ),
             ],
             [],
             [],

@@ -93,10 +93,11 @@ import enlopy
 #                 data.loc[idx[:, ems, device], "Integral_Equal"] = samples_df.values
 #     return #data
 
+
 def pickle_profiles(start: datetime, end: datetime, resolution: timedelta):
 
     # Pickle profile data
-    pickle_off = open("../comopt/pickles/imbalances_test_profile_1_day.pickle","rb")
+    pickle_off = open("../comopt/pickles/imbalances_test_profile_1_day.pickle", "rb")
     imbalances_test_profile_1_day = pickle.load(pickle_off)
     # imbalances_test_profile_1_day *= 2
     # imbalances_test_profile_1_day = abs(imbalances_test_profile_1_day)
@@ -108,51 +109,63 @@ def pickle_profiles(start: datetime, end: datetime, resolution: timedelta):
     # i[4:] = 0
     # imbalances_test_profile_1_day = deepcopy(i)
 
-    pickle_off = open("../comopt/pickles/imbalance_prices_test_profile_1_day.pickle","rb")
+    pickle_off = open(
+        "../comopt/pickles/imbalance_prices_test_profile_1_day.pickle", "rb"
+    )
     imbalance_prices_test_profile_1_day = pickle.load(pickle_off)
     imbalance_prices_test_profile_1_day = 6.5
 
-    pickle_off = open("../comopt/pickles/solar_test_profile_1_day.pickle","rb")
+    pickle_off = open("../comopt/pickles/solar_test_profile_1_day.pickle", "rb")
     solar_test_profile_1_day = pickle.load(pickle_off)
     # solar_test_profile_1_day.loc[:] = 3
-    solar_test_profile_1_day=round(solar_test_profile_1_day,1)
+    solar_test_profile_1_day = round(solar_test_profile_1_day, 1)
 
-    pickle_off = open("../comopt/pickles/load_test_profile_1_day.pickle","rb")
+    pickle_off = open("../comopt/pickles/load_test_profile_1_day.pickle", "rb")
     load_test_profile_1_day = pickle.load(pickle_off)
     # load_test_profile_1_day.loc[:] = 6
-    load_test_profile_1_day=round(load_test_profile_1_day,1)
+    load_test_profile_1_day = round(load_test_profile_1_day, 1)
 
-    pickle_off = open("../comopt/pickles/deviation_prices_1_day.pickle","rb")
+    pickle_off = open("../comopt/pickles/deviation_prices_1_day.pickle", "rb")
     deviation_prices = pickle.load(pickle_off)
     # load_test_profile_1_day.loc[:] = 6
 
     # Prices & Costs
     purchase_price = 32
     feed_in_price = 20
-    dev_base_price = (purchase_price + feed_in_price)/2
+    dev_base_price = (purchase_price + feed_in_price) / 2
 
-    imbalance_market_costs = abs(imbalances_test_profile_1_day) * imbalance_prices_test_profile_1_day
-    imbalance_market_costs_normalized = imbalance_market_costs/max(imbalance_market_costs)
+    imbalance_market_costs = (
+        abs(imbalances_test_profile_1_day) * imbalance_prices_test_profile_1_day
+    )
+    imbalance_market_costs_normalized = imbalance_market_costs / max(
+        imbalance_market_costs
+    )
 
     ## opt 2
     # deviation_prices = imbalance_market_costs_normalized
     deviation_prices[:] = 30
 
-    activated_load = enlopy.generate.gen_demand_response(load_test_profile_1_day,
-                                                          percent_peak_hrs_month=0.33,
-                                                          percent_shifted=0.25, shave=False)
-    flexible_load_profile = DataFrame(index=load_test_profile_1_day.index, columns=["derivative min", "derivative max"])
+    activated_load = enlopy.generate.gen_demand_response(
+        load_test_profile_1_day,
+        percent_peak_hrs_month=0.33,
+        percent_shifted=0.25,
+        shave=False,
+    )
+    flexible_load_profile = DataFrame(
+        index=load_test_profile_1_day.index,
+        columns=["derivative min", "derivative max"],
+    )
 
     # for idx in flexible_load_profile.index:
     #     flexible_load_profile.loc[idx,"derivative min"] = min(activated_load[idx],load_test_profile_1_day[idx])
     #     flexible_load_profile.loc[idx,"derivative max"] = max(activated_load[idx],load_test_profile_1_day[idx])
 
     for idx in flexible_load_profile.index:
-        flexible_load_profile.loc[idx,"derivative min"] = 0
+        flexible_load_profile.loc[idx, "derivative min"] = 0
         # flexible_load_profile.loc["2018-06-01 08:15:00","derivative min"]  = 0
         # flexible_load_profile.loc["2018-06-01 09:00:00":,"derivative min"]  = 0
 
-        flexible_load_profile.loc[idx,"derivative max"] = 2
+        flexible_load_profile.loc[idx, "derivative max"] = 2
         # flexible_load_profile.loc["2018-06-01 08:15:00","derivative max"]  = 0
         # flexible_load_profile.loc["2018-06-01 09:00:00":,"derivative max"]  = 0
 
@@ -162,22 +175,31 @@ def pickle_profiles(start: datetime, end: datetime, resolution: timedelta):
     # solar_test_profile_1_day.loc["2018-06-01 08:45:00"]  = 4
     # solar_test_profile_1_day.loc["2018-06-01 09:00:00":]  = 0
 
-    net_demand_without_flex = flexible_load_profile.loc[:,"derivative min"] - solar_test_profile_1_day
+    net_demand_without_flex = (
+        flexible_load_profile.loc[:, "derivative min"] - solar_test_profile_1_day
+    )
     net_demand_costs_without_flex = deepcopy(net_demand_without_flex)
-    net_demand_costs_without_flex[net_demand_costs_without_flex>0] = net_demand_costs_without_flex[net_demand_costs_without_flex>0]*purchase_price
-    net_demand_costs_without_flex[net_demand_costs_without_flex<0] = net_demand_costs_without_flex[net_demand_costs_without_flex<0]*feed_in_price
+    net_demand_costs_without_flex[net_demand_costs_without_flex > 0] = (
+        net_demand_costs_without_flex[net_demand_costs_without_flex > 0]
+        * purchase_price
+    )
+    net_demand_costs_without_flex[net_demand_costs_without_flex < 0] = (
+        net_demand_costs_without_flex[net_demand_costs_without_flex < 0] * feed_in_price
+    )
 
-    return {"imbalances_test_profile_1_day":imbalances_test_profile_1_day, \
-            "imbalance_prices_test_profile_1_day":imbalance_prices_test_profile_1_day, \
-            "solar_test_profile_1_day": solar_test_profile_1_day, \
-            "load_test_profile_1_day": load_test_profile_1_day, \
-            "deviation_prices": deviation_prices, \
-            "purchase_price": purchase_price, \
-            "feed_in_price": feed_in_price, \
-            "imbalance_market_costs": imbalance_market_costs, \
-            "flexible_load_profile": flexible_load_profile, \
-            "net_demand_without_flex": net_demand_without_flex, \
-            "net_demand_costs_without_flex":net_demand_costs_without_flex}
+    return {
+        "imbalances_test_profile_1_day": imbalances_test_profile_1_day,
+        "imbalance_prices_test_profile_1_day": imbalance_prices_test_profile_1_day,
+        "solar_test_profile_1_day": solar_test_profile_1_day,
+        "load_test_profile_1_day": load_test_profile_1_day,
+        "deviation_prices": deviation_prices,
+        "purchase_price": purchase_price,
+        "feed_in_price": feed_in_price,
+        "imbalance_market_costs": imbalance_market_costs,
+        "flexible_load_profile": flexible_load_profile,
+        "net_demand_without_flex": net_demand_without_flex,
+        "net_demand_costs_without_flex": net_demand_costs_without_flex,
+    }
 
 
 # idx = initialize_index(start=start_day, end=end_day, resolution=resolution_day)
@@ -230,7 +252,7 @@ def pickle_profiles(start: datetime, end: datetime, resolution: timedelta):
 # resolution_day = timedelta(hours=1)
 
 # imbalance_market_costs_normalized[:] = 10
-#deviation_prices = imbalance_market_costs_normalized
+# deviation_prices = imbalance_market_costs_normalized
 # deviation_multiplicator = 1
 # # env.ems_agents[0].flex_per_device[]
 #
@@ -247,7 +269,7 @@ def pickle_profiles(start: datetime, end: datetime, resolution: timedelta):
 # # imbalance_prices_test_profile_1_day *= 10
 # deviation_prices
 
-#------------------------------- PLOTTRY ----------------------------------------------------#
+# ------------------------------- PLOTTRY ----------------------------------------------------#
 # cut_off_indices = int(env.max_horizon/resolution - 1)
 # index = env.simulation_runtime_index[:-cut_off_indices]
 # from pandas import Index
@@ -293,86 +315,86 @@ def pickle_profiles(start: datetime, end: datetime, resolution: timedelta):
 
 
 ## TOY EXAMPLE INPUTSabs
-    # Pickle profile data
-    # pickle_off = open("../comopt/pickles/imbalances_test_profile_1_day.pickle","rb")
-    # imbalances_test_profile_1_day = pickle.load(pickle_off)
-    # imbalances_test_profile_1_day *= 2
-    # imbalances_test_profile_1_day = abs(imbalances_test_profile_1_day)
-    #
-    # i = deepcopy(imbalances_test_profile_1_day[start:end])
-    # i[start:end] = 2
-    # # i[1] *=-1
-    # i[2] *=-1
-    # i[4:] = 0
-    # imbalances_test_profile_1_day = deepcopy(i)
-    #
-    # pickle_off = open("../comopt/pickles/imbalance_prices_test_profile_1_day.pickle","rb")
-    # imbalance_prices_test_profile_1_day = pickle.load(pickle_off)
-    # imbalance_prices_test_profile_1_day = 6.5
-    #
-    # pickle_off = open("../comopt/pickles/solar_test_profile_1_day.pickle","rb")
-    # solar_test_profile_1_day = pickle.load(pickle_off)
-    # # solar_test_profile_1_day.loc[:] = 3
-    # solar_test_profile_1_day=round(solar_test_profile_1_day,1)
-    #
-    # pickle_off = open("../comopt/pickles/load_test_profile_1_day.pickle","rb")
-    # load_test_profile_1_day = pickle.load(pickle_off)
-    # # load_test_profile_1_day.loc[:] = 6
-    # load_test_profile_1_day=round(load_test_profile_1_day,1)
-    #
-    # pickle_off = open("../comopt/pickles/deviation_prices_1_day.pickle","rb")
-    # deviation_prices = pickle.load(pickle_off)
-    # # load_test_profile_1_day.loc[:] = 6
-    #
-    # # Prices & Costs
-    # purchase_price = 32
-    # feed_in_price = 20
-    # dev_base_price = (purchase_price + feed_in_price)/2
-    #
-    # imbalance_market_costs = abs(imbalances_test_profile_1_day) * imbalance_prices_test_profile_1_day
-    # imbalance_market_costs_normalized = imbalance_market_costs/max(imbalance_market_costs)
-    #
-    # ## opt 2
-    # deviation_prices = imbalance_market_costs_normalized
-    # deviation_prices[:] = 30
-    #
-    # activated_load = enlopy.generate.gen_demand_response(load_test_profile_1_day,
-    #                                                       percent_peak_hrs_month=0.33,
-    #                                                       percent_shifted=0.25, shave=False)
-    # flexible_load_profile = DataFrame(index=load_test_profile_1_day.index, columns=["derivative min", "derivative max"])
-    #
-    # # for idx in flexible_load_profile.index:
-    # #     flexible_load_profile.loc[idx,"derivative min"] = min(activated_load[idx],load_test_profile_1_day[idx])
-    # #     flexible_load_profile.loc[idx,"derivative max"] = max(activated_load[idx],load_test_profile_1_day[idx])
-    #
-    # for idx in flexible_load_profile.index:
-    #     flexible_load_profile.loc[idx,"derivative min"] = 2
-    #     flexible_load_profile.loc["2018-06-01 08:15:00","derivative min"]  = 0
-    #     flexible_load_profile.loc["2018-06-01 09:00:00":,"derivative min"]  = 0
-    #
-    #     flexible_load_profile.loc[idx,"derivative max"] = 2
-    #     flexible_load_profile.loc["2018-06-01 08:15:00","derivative max"]  = 0
-    #     flexible_load_profile.loc["2018-06-01 09:00:00":,"derivative max"]  = 0
-    #
-    # solar_test_profile_1_day.loc["2018-06-01 08:00:00"]  = 0
-    # solar_test_profile_1_day.loc["2018-06-01 08:15:00"]  = 2
-    # solar_test_profile_1_day.loc["2018-06-01 08:30:00"]  = 2
-    # solar_test_profile_1_day.loc["2018-06-01 08:45:00"]  = 4
-    # solar_test_profile_1_day.loc["2018-06-01 09:00:00":]  = 0
-    #
-    # net_demand_without_flex = flexible_load_profile.loc[:,"derivative min"] - solar_test_profile_1_day
-    # net_demand_costs_without_flex = deepcopy(net_demand_without_flex)
-    # net_demand_costs_without_flex[net_demand_costs_without_flex>0] = net_demand_costs_without_flex[net_demand_costs_without_flex>0]*purchase_price
-    # net_demand_costs_without_flex[net_demand_costs_without_flex<0] = net_demand_costs_without_flex[net_demand_costs_without_flex<0]*feed_in_price
-    #
-    # return {"imbalances_test_profile_1_day":imbalances_test_profile_1_day, \
-    #         "imbalance_prices_test_profile_1_day":imbalance_prices_test_profile_1_day, \
-    #         "solar_test_profile_1_day": solar_test_profile_1_day, \
-    #         "load_test_profile_1_day": load_test_profile_1_day, \
-    #         "deviation_prices": deviation_prices, \
-    #         "purchase_price": purchase_price, \
-    #         "feed_in_price": feed_in_price, \
-    #         "imbalance_market_costs": imbalance_market_costs, \
-    #         "flexible_load_profile": flexible_load_profile, \
-    #         "net_demand_without_flex": net_demand_without_flex, \
-    #         "net_demand_costs_without_flex":net_demand_costs_without_flex}
+# Pickle profile data
+# pickle_off = open("../comopt/pickles/imbalances_test_profile_1_day.pickle","rb")
+# imbalances_test_profile_1_day = pickle.load(pickle_off)
+# imbalances_test_profile_1_day *= 2
+# imbalances_test_profile_1_day = abs(imbalances_test_profile_1_day)
+#
+# i = deepcopy(imbalances_test_profile_1_day[start:end])
+# i[start:end] = 2
+# # i[1] *=-1
+# i[2] *=-1
+# i[4:] = 0
+# imbalances_test_profile_1_day = deepcopy(i)
+#
+# pickle_off = open("../comopt/pickles/imbalance_prices_test_profile_1_day.pickle","rb")
+# imbalance_prices_test_profile_1_day = pickle.load(pickle_off)
+# imbalance_prices_test_profile_1_day = 6.5
+#
+# pickle_off = open("../comopt/pickles/solar_test_profile_1_day.pickle","rb")
+# solar_test_profile_1_day = pickle.load(pickle_off)
+# # solar_test_profile_1_day.loc[:] = 3
+# solar_test_profile_1_day=round(solar_test_profile_1_day,1)
+#
+# pickle_off = open("../comopt/pickles/load_test_profile_1_day.pickle","rb")
+# load_test_profile_1_day = pickle.load(pickle_off)
+# # load_test_profile_1_day.loc[:] = 6
+# load_test_profile_1_day=round(load_test_profile_1_day,1)
+#
+# pickle_off = open("../comopt/pickles/deviation_prices_1_day.pickle","rb")
+# deviation_prices = pickle.load(pickle_off)
+# # load_test_profile_1_day.loc[:] = 6
+#
+# # Prices & Costs
+# purchase_price = 32
+# feed_in_price = 20
+# dev_base_price = (purchase_price + feed_in_price)/2
+#
+# imbalance_market_costs = abs(imbalances_test_profile_1_day) * imbalance_prices_test_profile_1_day
+# imbalance_market_costs_normalized = imbalance_market_costs/max(imbalance_market_costs)
+#
+# ## opt 2
+# deviation_prices = imbalance_market_costs_normalized
+# deviation_prices[:] = 30
+#
+# activated_load = enlopy.generate.gen_demand_response(load_test_profile_1_day,
+#                                                       percent_peak_hrs_month=0.33,
+#                                                       percent_shifted=0.25, shave=False)
+# flexible_load_profile = DataFrame(index=load_test_profile_1_day.index, columns=["derivative min", "derivative max"])
+#
+# # for idx in flexible_load_profile.index:
+# #     flexible_load_profile.loc[idx,"derivative min"] = min(activated_load[idx],load_test_profile_1_day[idx])
+# #     flexible_load_profile.loc[idx,"derivative max"] = max(activated_load[idx],load_test_profile_1_day[idx])
+#
+# for idx in flexible_load_profile.index:
+#     flexible_load_profile.loc[idx,"derivative min"] = 2
+#     flexible_load_profile.loc["2018-06-01 08:15:00","derivative min"]  = 0
+#     flexible_load_profile.loc["2018-06-01 09:00:00":,"derivative min"]  = 0
+#
+#     flexible_load_profile.loc[idx,"derivative max"] = 2
+#     flexible_load_profile.loc["2018-06-01 08:15:00","derivative max"]  = 0
+#     flexible_load_profile.loc["2018-06-01 09:00:00":,"derivative max"]  = 0
+#
+# solar_test_profile_1_day.loc["2018-06-01 08:00:00"]  = 0
+# solar_test_profile_1_day.loc["2018-06-01 08:15:00"]  = 2
+# solar_test_profile_1_day.loc["2018-06-01 08:30:00"]  = 2
+# solar_test_profile_1_day.loc["2018-06-01 08:45:00"]  = 4
+# solar_test_profile_1_day.loc["2018-06-01 09:00:00":]  = 0
+#
+# net_demand_without_flex = flexible_load_profile.loc[:,"derivative min"] - solar_test_profile_1_day
+# net_demand_costs_without_flex = deepcopy(net_demand_without_flex)
+# net_demand_costs_without_flex[net_demand_costs_without_flex>0] = net_demand_costs_without_flex[net_demand_costs_without_flex>0]*purchase_price
+# net_demand_costs_without_flex[net_demand_costs_without_flex<0] = net_demand_costs_without_flex[net_demand_costs_without_flex<0]*feed_in_price
+#
+# return {"imbalances_test_profile_1_day":imbalances_test_profile_1_day, \
+#         "imbalance_prices_test_profile_1_day":imbalance_prices_test_profile_1_day, \
+#         "solar_test_profile_1_day": solar_test_profile_1_day, \
+#         "load_test_profile_1_day": load_test_profile_1_day, \
+#         "deviation_prices": deviation_prices, \
+#         "purchase_price": purchase_price, \
+#         "feed_in_price": feed_in_price, \
+#         "imbalance_market_costs": imbalance_market_costs, \
+#         "flexible_load_profile": flexible_load_profile, \
+#         "net_demand_without_flex": net_demand_without_flex, \
+#         "net_demand_costs_without_flex":net_demand_costs_without_flex}

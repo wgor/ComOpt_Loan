@@ -5,6 +5,7 @@ from pandas import DataFrame
 
 from comopt.scenario.ems_constraints import completely_unconstrained_profile
 
+
 def limited_battery_capacity_profile(
     start: datetime,
     end: datetime,

@@ -26,7 +26,7 @@ class FlexRequest(Request):
         self.prognosis = prognosis
         self.requested_flex = requested_flex
 
-        # TODO: Check if still used (does not seem so), also the values are not right. We used flex_request.commitment.constants.values instead. 
+        # TODO: Check if still used (does not seem so), also the values are not right. We used flex_request.commitment.constants.values instead.
         self.requested_power = (
             self.prognosis.commitment.constants.loc[
                 self.start : self.end - self.resolution
@@ -38,7 +38,13 @@ class FlexRequest(Request):
 class FlexOffer(Offer):
     """A FlexOffer describes offered commitments to deviate from a prognosis."""
 
-    def __init__(self, flex_request: FlexRequest, planned_flex: float = None, planned_deviation_costs:float = None, **kwargs):
+    def __init__(
+        self,
+        flex_request: FlexRequest,
+        planned_flex: float = None,
+        planned_deviation_costs: float = None,
+        **kwargs,
+    ):
         self.planned_flex = planned_flex
         super().__init__(**kwargs)
         self.flex_request = flex_request
@@ -77,8 +83,14 @@ class FlexOrder(Order):
 
 class UdiEvent(Offer):
     """A UdiEvent describes a flexible energy consumption or production event."""
-    #TODO: planned flex keyword
-    def __init__(self, planned_flex: float=None, planned_deviation_costs:float=None, **kwargs):
+
+    # TODO: planned flex keyword
+    def __init__(
+        self,
+        planned_flex: float = None,
+        planned_deviation_costs: float = None,
+        **kwargs,
+    ):
         self.planned_deviation_costs = planned_deviation_costs
         self.planned_flex = planned_flex
         super().__init__(deviation_cost_curve=None, **kwargs)

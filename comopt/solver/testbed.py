@@ -24,6 +24,7 @@ from comopt.solver.utils import (
 )
 import os
 
+
 def preprocess_solver_data(data: pd.DataFrame):
     # Create multiindex dataframe with indizes "time","ems","devices".
     data.set_index(["time", "ems", "devices"], inplace=True)
@@ -179,8 +180,9 @@ def create_solver_results_dataframes(model: ConcreteModel):
                 "Storage_Active_Discharging": (
                     round(
                         value(
-                            model.storages_discharging_active[timeperiod, ems, device]),
-                            1,
+                            model.storages_discharging_active[timeperiod, ems, device]
+                        ),
+                        1,
                     )
                 ),
             }
@@ -683,6 +685,7 @@ def print_solver_file(file=None):
         output = f.read()
         print(output)
         f.close()
+
 
 # %% Init
 working_directory_path = os.path.abspath(os.path.dirname("solver.py"))

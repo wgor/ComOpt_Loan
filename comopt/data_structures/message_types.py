@@ -38,6 +38,7 @@ class Request:
         self.resolution = self.commitment.resolution
         self.costs = costs
 
+
 class Offer:
     """Todoc: write docstring, including explanation that costs refer to the whole Offer (not per timeslot)."""
 

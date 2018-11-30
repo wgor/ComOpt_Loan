@@ -86,6 +86,7 @@ def single_curtailment_or_shift_each_day_between_10_and_12_am(
     ] = imbalance_price_between_2_and_3_am
     return df
 
+
 def single_curtailment_or_shift_each_day_between_12_and_14_pm(
     start: datetime, end: datetime, resolution: timedelta
 ) -> DataFrame:
@@ -119,10 +120,19 @@ def single_curtailment_or_shift_each_day_between_12_and_14_pm(
     ] = imbalance_price_between_2_and_3_am
     return df
 
+
 def generated_imbalance_profile(
-    start: datetime, end: datetime, resolution: timedelta, imbalance_range: Tuple,
-    imbalance_price_1: float, imbalance_price_2: float, frequency: float, window_size: Tuple,
-    imbalance_profile: Series=None, imbalance_prices: Series=None) -> DataFrame:
+    start: datetime,
+    end: datetime,
+    resolution: timedelta,
+    imbalance_range: Tuple,
+    imbalance_price_1: float,
+    imbalance_price_2: float,
+    frequency: float,
+    window_size: Tuple,
+    imbalance_profile: Series = None,
+    imbalance_prices: Series = None,
+) -> DataFrame:
     """Generate imbalances for a given timeperiod."""
 
     df = initialize_df(
@@ -134,26 +144,31 @@ def generated_imbalance_profile(
 
     if imbalance_profile is None:
         dummy_index = DatetimeIndex(start=start, end=end, freq=resolution)
-        num_samples = int(len(dummy_index)*frequency)
-        windows_data=uniform(size=len(dummy_index))
+        num_samples = int(len(dummy_index) * frequency)
+        windows_data = uniform(size=len(dummy_index))
         windows = Series(data=windows_data, index=dummy_index)
         samples_df = Series(index=dummy_index)
-        samples = [windows.iloc[x:x+randint(window_size[0],window_size[1],)] * choice([-1,1])
-                   for x in randint(len(windows), size=num_samples)]
+        samples = [
+            windows.iloc[x : x + randint(window_size[0], window_size[1])]
+            * choice([-1, 1])
+            for x in randint(len(windows), size=num_samples)
+        ]
 
         for sample in samples:
-            samples_df.loc[sample.index[0]:sample.index[-1]] = sample
+            samples_df.loc[sample.index[0] : sample.index[-1]] = sample
 
-        samples_df[samples_df < 0] = samples_df[samples_df < 0]*imbalance_range[0]
-        samples_df[samples_df > 0] = samples_df[samples_df > 0]*imbalance_range[1]
+        samples_df[samples_df < 0] = samples_df[samples_df < 0] * imbalance_range[0]
+        samples_df[samples_df > 0] = samples_df[samples_df > 0] * imbalance_range[1]
         imbalance_profile = samples_df
 
         df["Imbalance (in MW)"] = 0
         df["Imbalance (in MW)"].loc[start:end] = imbalance_profile.loc[start:end]
-        df["Price (in EUR/MWh)"] = where(df["Imbalance (in MW)"] == NaN, imbalance_price_1, imbalance_price_2)
+        df["Price (in EUR/MWh)"] = where(
+            df["Imbalance (in MW)"] == NaN, imbalance_price_1, imbalance_price_2
+        )
     else:
         df["Imbalance (in MW)"].loc[start:end] = imbalance_profile
-        df["Price (in EUR/MWh)"] =imbalance_prices
+        df["Price (in EUR/MWh)"] = imbalance_prices
         # print("balance")
         # print(df)
 

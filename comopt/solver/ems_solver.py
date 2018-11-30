@@ -15,7 +15,7 @@ from pyomo.core import (
     Objective,
     minimize,
     TransformationFactory,
-    BuildAction
+    BuildAction,
 )
 from pyomo.gdp import Disjunct, Disjunction
 from pyomo.environ import UnknownSolver, Suffix
@@ -25,6 +25,7 @@ from pyomo.opt import SolverFactory
 from comopt.model.utils import initialize_series
 
 import logging
+
 # logging.getLogger('pyomo.core').setLevel(logging.ERROR)
 #
 infinity = float("inf")
@@ -205,7 +206,9 @@ def device_scheduler(
     model.device_derivative_min = Param(
         model.d, model.j, initialize=device_derivative_min_select
     )
-    model.device_derivative_equal = Param(model.d, model.j, initialize=device_derivative_equal_select)
+    model.device_derivative_equal = Param(
+        model.d, model.j, initialize=device_derivative_equal_select
+    )
 
     model.ems_derivative_max = Param(model.j, initialize=ems_derivative_max_select)
     model.ems_derivative_min = Param(model.j, initialize=ems_derivative_min_select)
@@ -230,7 +233,7 @@ def device_scheduler(
     def device_derivative_bounds(m, d, j):
         return (
             m.device_derivative_min[d, j],
-            m.power[d,j] - m.device_derivative_equal[d, j] ,
+            m.power[d, j] - m.device_derivative_equal[d, j],
             m.device_derivative_max[d, j],
         )
 
@@ -249,30 +252,29 @@ def device_scheduler(
     )
 
     def up_linker(b, c, d, j):
-        #print("In up linker")
+        # print("In up linker")
         m = b.model()
         ems_power_in_j = sum(m.power[d, j] for d in m.d)
         ems_power_deviation = ems_power_in_j - m.commitment_quantity[c, j]
-        #try:
-            #print(value(ems_power_deviation))
-        #except:
-            #pass
+        # try:
+        # print(value(ems_power_deviation))
+        # except:
+        # pass
         b.linker = Constraint(expr=m.price[c, j] == m.up_price[c, j])
         b.constr = Constraint(expr=ems_power_deviation >= 0)
         b.BigM = Suffix(direction=Suffix.LOCAL)
         b.BigM[b.linker] = 10e5
         return
 
-
     def down_linker(b, c, d, j):
-        #print("In down linker")
+        # print("In down linker")
         m = b.model()
         ems_power_in_j = sum(m.power[d, j] for d in m.d)
         ems_power_deviation = ems_power_in_j - m.commitment_quantity[c, j]
-        #try:
-            #print(value(ems_power_deviation))
-        #except:
-            #pass
+        # try:
+        # print(value(ems_power_deviation))
+        # except:
+        # pass
         b.linker = Constraint(expr=m.price[c, j] == m.down_price[c, j])
         b.constr = Constraint(expr=ems_power_deviation <= 0)
         b.BigM = Suffix(direction=Suffix.LOCAL)
@@ -296,16 +298,17 @@ def device_scheduler(
 
     model.up_deviation = Disjunct(model.c, model.d, model.j, rule=up_linker)
     model.down_deviation = Disjunct(model.c, model.d, model.j, rule=down_linker)
-    #model.zero_deviation = Disjunct(model.c, model.d, model.j, rule=zero_linker)
-
+    # model.zero_deviation = Disjunct(model.c, model.d, model.j, rule=zero_linker)
 
     def bind_prices(m, c, d, j):
-        return [model.up_deviation[c, d, j], model.down_deviation[c, d, j],
-                #model.zero_deviation[c, d, j]
-                ]
+        return [
+            model.up_deviation[c, d, j],
+            model.down_deviation[c, d, j],
+            # model.zero_deviation[c, d, j]
+        ]
 
     model.up_or_down_deviation = Disjunction(
-        model.c, model.d, model.j, rule=bind_prices, xor=True,
+        model.c, model.d, model.j, rule=bind_prices, xor=True
     )
 
     # Add objective
@@ -327,16 +330,18 @@ def device_scheduler(
     # Transform and solve
     xfrm = TransformationFactory("gdp.bigm")
     xfrm.apply_to(model)
-    solver = SolverFactory("cplex", executable="D:/CPLEX/Studio/cplex/bin/x64_win64/cplex")
-    #solver.options['CPXchgprobtype'] = "CPXPROB_QP"
-    #solver.options["solver"] = "CPXqpopt"
+    solver = SolverFactory(
+        "cplex", executable="D:/CPLEX/Studio/cplex/bin/x64_win64/cplex"
+    )
+    # solver.options['CPXchgprobtype'] = "CPXPROB_QP"
+    # solver.options["solver"] = "CPXqpopt"
     solver.options["qpmethod"] = 1
     solver.options["optimalitytarget"] = 3
 
-    #solver.options["acceptable_constr_viol_tol"] = 10
-    #solver.options['acceptable_tol'] = 1
-    #solver.options['acceptable_dual_inf_tol'] = 10
-    #solver.options['acceptable_compl_inf_tol'] = 10
+    # solver.options["acceptable_constr_viol_tol"] = 10
+    # solver.options['acceptable_tol'] = 1
+    # solver.options['acceptable_dual_inf_tol'] = 10
+    # solver.options['acceptable_compl_inf_tol'] = 10
     results = solver.solve(model, tee=False)
 
     planned_costs = value(model.costs)
@@ -345,18 +350,24 @@ def device_scheduler(
     # print(last_commitment[0,0])
     # if abs(model.power[d, j].value) > 0.1 else model.commitment_quantity[model.c[1],j]
 
-    #TODO: Find better solution to assign Devices
+    # TODO: Find better solution to assign Devices
     # print("SOLVER: Device power bound: {}\n".format(model.device_power_bounds.pprint()))
     for enum, d in enumerate(model.d):
-        planned_device_power = [round(model.power[d, j].value,5) for j in model.j]
-        #TODO: Modify logic for batteries and buffers
+        planned_device_power = [round(model.power[d, j].value, 5) for j in model.j]
+        # TODO: Modify logic for batteries and buffers
 
         if enum == 0:
-            planned_power_per_device["Load"] = initialize_series(planned_device_power, start=start, end=end, resolution=resolution)
+            planned_power_per_device["Load"] = initialize_series(
+                planned_device_power, start=start, end=end, resolution=resolution
+            )
         elif enum == 1:
-            planned_power_per_device["Generation"] = initialize_series(planned_device_power, start=start, end=end, resolution=resolution)
+            planned_power_per_device["Generation"] = initialize_series(
+                planned_device_power, start=start, end=end, resolution=resolution
+            )
         elif enum == 2:
-            planned_power_per_device["Battery"] = initialize_series(planned_device_power, start=start, end=end, resolution=resolution)
+            planned_power_per_device["Battery"] = initialize_series(
+                planned_device_power, start=start, end=end, resolution=resolution
+            )
         else:
             # TODO: Buffer
             pass
@@ -365,11 +376,10 @@ def device_scheduler(
         # else:
         #     planned_power_per_device["Generation"] = initialize_series(planned_device_power, start=start, end=end, resolution=resolution)
 
-
-    #model.display()
-    #results.pprint()
-    #model.down_deviation.pprint()
-    #model.up_deviation.pprint()
+    # model.display()
+    # results.pprint()
+    # model.down_deviation.pprint()
+    # model.up_deviation.pprint()
     # model.power.pprint()
 
     # print(planned_costs)
@@ -386,13 +396,18 @@ def device_scheduler(
                 ems_power_deviation = ems_power_in_j - m.commitment_quantity[c, j]
 
                 if value(ems_power_deviation) >= 0:
-                    commitment_cost += round(value(ems_power_deviation * m.up_price[c, j]),3)
+                    commitment_cost += round(
+                        value(ems_power_deviation * m.up_price[c, j]), 3
+                    )
 
                 else:
-                    commitment_cost += round(value(ems_power_deviation * m.down_price[c, j]),3)
+                    commitment_cost += round(
+                        value(ems_power_deviation * m.down_price[c, j]), 3
+                    )
 
             commitments_costs.append(commitment_cost)
         return commitments_costs
+
     planned_costs_per_commitment = redo_cost_calculation(model)
     print(planned_costs_per_commitment)
 
