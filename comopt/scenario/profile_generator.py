@@ -96,7 +96,7 @@ import enlopy
 def pickle_profiles(start: datetime, end: datetime, resolution: timedelta):
 
     # Pickle profile data
-    pickle_off = open("ComOpt_Loan/comopt/pickles/imbalances_test_profile_1_day.pickle","rb")
+    pickle_off = open("../comopt/pickles/imbalances_test_profile_1_day.pickle","rb")
     imbalances_test_profile_1_day = pickle.load(pickle_off)
     # imbalances_test_profile_1_day *= 2
     # imbalances_test_profile_1_day = abs(imbalances_test_profile_1_day)
@@ -108,21 +108,21 @@ def pickle_profiles(start: datetime, end: datetime, resolution: timedelta):
     # i[4:] = 0
     # imbalances_test_profile_1_day = deepcopy(i)
 
-    pickle_off = open("ComOpt_Loan/comopt/pickles/imbalance_prices_test_profile_1_day.pickle","rb")
+    pickle_off = open("../comopt/pickles/imbalance_prices_test_profile_1_day.pickle","rb")
     imbalance_prices_test_profile_1_day = pickle.load(pickle_off)
     imbalance_prices_test_profile_1_day = 6.5
 
-    pickle_off = open("ComOpt_Loan/comopt/pickles/solar_test_profile_1_day.pickle","rb")
+    pickle_off = open("../comopt/pickles/solar_test_profile_1_day.pickle","rb")
     solar_test_profile_1_day = pickle.load(pickle_off)
     # solar_test_profile_1_day.loc[:] = 3
     solar_test_profile_1_day=round(solar_test_profile_1_day,1)
 
-    pickle_off = open("ComOpt_Loan/comopt/pickles/load_test_profile_1_day.pickle","rb")
+    pickle_off = open("../comopt/pickles/load_test_profile_1_day.pickle","rb")
     load_test_profile_1_day = pickle.load(pickle_off)
     # load_test_profile_1_day.loc[:] = 6
     load_test_profile_1_day=round(load_test_profile_1_day,1)
 
-    pickle_off = open("ComOpt_Loan/comopt/pickles/deviation_prices_1_day.pickle","rb")
+    pickle_off = open("../comopt/pickles/deviation_prices_1_day.pickle","rb")
     deviation_prices = pickle.load(pickle_off)
     # load_test_profile_1_day.loc[:] = 6
 
