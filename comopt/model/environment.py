@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List, Union
+from typing import Callable, Dict, Union
 from datetime import datetime, timedelta
 from time import time
 
@@ -12,18 +12,16 @@ from comopt.model.ems import EMS
 
 class Environment:
     """ Model environment class.
-        Within an environment agent instances of various types (e.g. Market-, Trading-, EMS-Agents) gets created and stored,
+        Within an environment agent instances of various types (e.g. Market-, Trading-, EMS-Agents) get created and stored,
         the simulation gets proceeded stepwise and the simulation steps get tracked.
     Args:
-        data:   a dictionary that provides timeseries and parameter values for the simulation. dictionary gets created by the function "data_import".
-                keys and items of data: {"active_EMS": active_EMS, "ems_ts":ems_ts, "ems_p":ems_p, "MA_ts":MA_ts, "MA_param":MA_param, "TA_ts":TA_ts, "TA_param":TA_param}
-        seed (optional, default:datetime): seed for the random number generators.
-        name (optional, default:None): parameter to specify an environment by a given name.
+        input_data: a dictionary that provides timeseries and parameter values for the simulation.
+        name: parameter to specify an environment by a given name.
     Attributes:
-        running (default:True): binary variable that indicates the simulation status.
-        activate_ems:   number of ems that are included in model. active ems agents can be attached or removed within the input excel file.
-        running: a bool variable that is used as the on/off condition within the function "run_model".
-        steps: indicates the proceeds of the model.
+        execution_time: a timedelta expressing the time the simulation took to complete
+        start: starting datetime of the simulation
+        end: ending datetime of the simulation
+        now: "current" datetime while the simulation is running
     """
 
     def __init__(
@@ -32,7 +30,7 @@ class Environment:
         start: datetime,
         end: datetime,
         resolution: timedelta,
-        input_data: Dict[str, Union[DataFrame, Series, timedelta, bool, Callable]],
+        input_data: Dict[str, Union[DataFrame, Series, timedelta, bool, dict, Callable]],
     ):
         """Create simulation environment."""
         self.name = name
@@ -70,14 +68,14 @@ class Environment:
             flex_trade_horizon=input_data["MA horizon"],
             retail_price=10,
             balancing_opportunities=input_data["Balancing opportunities"],
-            deviation_prices=input_data["MA Deviation Prices"],
+            deviation_prices=input_data["MA deviation prices"],
             prognosis_policy=input_data["MA prognosis policy"],
             prognosis_parameter=input_data["MA prognosis parameter"],
             flexrequest_policy=input_data["MA flexrequest policy"],
             flexrequest_parameter=input_data["MA flexrequest parameter"],
             sticking_factor=input_data["MA flexrequest parameter"]["Sticking factor"],
-            deviation_multiplicator=input_data["MA Deviation Multiplicator"],
-            imbalance_market_costs=input_data["MA imbalance_market_costs"],
+            deviation_multiplicator=input_data["MA deviation multiplicator"],
+            imbalance_market_costs=input_data["MA imbalance market costs"],
         )
         self.trading_agent = TradingAgent(
             name="Trading agent",
@@ -96,7 +94,7 @@ class Environment:
             flexrequest_parameter=input_data["TA flexrequest parameter"],
             flexrequest_learning_parameter=input_data["Q parameter flexrequest"],
         )
-        # Set up planboard
+        # Set up plan board
         self.plan_board = PlanBoard(start=start, end=end, resolution=resolution)
         # Create message log for each time period
         self.plan_board.create_message_logs(

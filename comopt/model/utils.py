@@ -114,7 +114,7 @@ def create_negotiation_log(
     rounds_total: int,
 ) -> DataFrame:
 
-    """ Returns a multiindex dataframe with inidices (datetime, rounds) and columns for prices, bids, profits, etc. """
+    """ Returns a multiindex dataframe with indices (datetime, rounds) and columns for prices, bids, profits, etc. """
 
     logfile = DataFrame(
         index=MultiIndex.from_product(
@@ -154,7 +154,7 @@ def start_negotiation(
     action_table_df: DataFrame,
     q_table_df: DataFrame,
     q_parameter: dict,
-) -> str:
+) -> dict:
 
     """ Function that gets called within the trading agents step function."""
 

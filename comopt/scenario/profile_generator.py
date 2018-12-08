@@ -94,7 +94,7 @@ import enlopy
 #     return #data
 
 
-def pickle_profiles(start: datetime, end: datetime, resolution: timedelta):
+def pickle_profiles(start: datetime, end: datetime, resolution: timedelta) -> Dict[str, Series]:
 
     # Pickle profile data
     pickle_off = open("../comopt/pickles/imbalances_test_profile_1_day.pickle", "rb")

@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from comopt.model.environment import Environment
 from comopt.scenario.balancing_opportunities import (
-    single_curtailment_or_shift_each_day_between_2_and_3_am as balancing_opportunities
+    single_curtailment_each_day_from_hours_a_to_b
 )
 from comopt.scenario.ems_constraints import (
     limited_capacity_profile as grid_connection,
@@ -10,9 +10,9 @@ from comopt.scenario.ems_constraints import (
     curtailable_integer_test_profile,
 )
 from comopt.scenario.ma_policies import (
-    buy_prognosis_at_random_price_between_0_and_2 as buy_prognosis_policy
+    buy_at_any_cost as buy_prognosis_policy
 )
-from comopt.scenario.ta_policies import never_sell_prognosis as sell_prognosis_policy
+from comopt.scenario.ta_policies import sell_at_any_cost as sell_prognosis_policy
 
 
 def test_message_board_no_prognosis_trade():
@@ -25,8 +25,8 @@ def test_message_board_no_prognosis_trade():
     resolution = timedelta(minutes=15)
     ems_names = ["EMS 1", "EMS 2", "EMS 3"]
     input_data = {
-        "Balancing opportunities": balancing_opportunities(
-            start=start, end=end, resolution=resolution
+        "Balancing opportunities": single_curtailment_each_day_from_hours_a_to_b(
+            start=start, end=end, resolution=resolution, a=12, b=14
         ),
         "EMS constraints": [
             grid_connection(start=start, end=end, resolution=resolution, capacity=10),
@@ -60,7 +60,6 @@ def test_message_board_no_prognosis_trade():
         start=start,
         end=end,
         resolution=resolution,
-        ems_names=ems_names,
         input_data=input_data,
     )
 

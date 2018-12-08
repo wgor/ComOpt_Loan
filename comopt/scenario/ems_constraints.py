@@ -297,10 +297,10 @@ def curtailable_solar_profile(
     return df
 
 
-def curtailable_integer_solar_profile(
+def curtailable_integer_test_profile(
     start: datetime, end: datetime, resolution: timedelta
 ) -> DataFrame:
-    """Can be used to model a fully curtailable solar panel with the same generation profile every day."""
+    """Can be used to test a curtailable generation profile."""
 
     daily_power = list(range(24))
 

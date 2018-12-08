@@ -219,15 +219,12 @@ class TradingAgent(Agent):
                 event.commitment.constants[:], fill_value=0
             )
 
-        return (
-            Prognosis(
-                id=self.environment.plan_board.get_message_id(),
-                start=self.environment.now,
-                end=self.environment.now + self.prognosis_horizon,
-                resolution=self.environment.resolution,
-                prognosed_values=prognosed_values,
-            ),
-            udi_events,
+        return Prognosis(
+            id=self.environment.plan_board.get_message_id(),
+            start=self.environment.now,
+            end=self.environment.now + self.prognosis_horizon,
+            resolution=self.environment.resolution,
+            prognosed_values=prognosed_values,
         )
 
     def create_flex_offer(
@@ -403,7 +400,7 @@ class TradingAgent(Agent):
                 self.environment.now
             )
         )
-        print()
+
         # Pull market agent request for prognosis
         prognosis_request = self.market_agent.post_prognosis_request()
         # Add prognosis request to plan board
@@ -489,7 +486,8 @@ class TradingAgent(Agent):
                 )
 
         # Determine Prognosis
-        prognosis, prognosis_udi_events = self.create_prognosis(udi_events)
+        prognosis = self.create_prognosis(udi_events)
+        prognosis_udi_events = udi_events
 
         # Add Prognosis to planboard message log
         self.environment.plan_board.store_message(
