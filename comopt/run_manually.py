@@ -1,18 +1,7 @@
 from datetime import datetime, timedelta
-from math import sqrt, sin, nan
-from pandas import (
-    DataFrame,
-    MultiIndex,
-    IndexSlice,
-    Index,
-    set_option,
-    plotting,
-    concat,
-    date_range,
-    option_context,
-    to_numeric,
-    isnull,
-)
+from random import uniform, randint, gauss, seed
+
+from pandas import set_option
 
 from comopt.model.environment import Environment
 from comopt.scenario.balancing_opportunities import (
@@ -81,11 +70,7 @@ from comopt.plotting.profile_plots import (
     plot_ems_net_demand_data,
 )
 
-import time
-from random import uniform, randint, gauss, seed
-
 # Set horizon
-start_time = time.time()
 start = datetime(year=2018, month=6, day=1, hour=12)
 end = datetime(year=2018, month=6, day=1, hour=16)
 resolution = timedelta(minutes=15)
@@ -294,8 +279,6 @@ env = Environment(
 
 # Run simulation model
 env.run_model()
-# execution time i minutes
-execution_time = (time.time() - start_time) / 60
 
 # Cut off head and tail for analysis
 cut_head = timedelta(days=1)

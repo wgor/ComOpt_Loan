@@ -1,5 +1,6 @@
 from typing import Callable, Dict, List, Union
 from datetime import datetime, timedelta
+from time import time
 
 from pandas import DataFrame, Series
 from comopt.model.utils import create_negotiation_log, initialize_index
@@ -38,6 +39,7 @@ class Environment:
         self.name = name
 
         # Set up time
+        self.execution_time = None
         self.start = start
         self.end = end
         self.resolution = resolution
@@ -157,6 +159,7 @@ class Environment:
 
     def run_model(self):
         """Run the model until the end condition is reached."""
+        start_time = time()
         self.max_horizon = max(
             self.market_agent.flex_trade_horizon, self.trading_agent.prognosis_horizon
         )
@@ -175,6 +178,7 @@ class Environment:
             if self.now.hour == 0 and self.now.minute == 0:
                 print("Simulation progress: day %s" % self.now.day)
             self.step()
+        self.execution_time = timedelta(seconds=time() - start_time)
 
     def step(self):
         """Proceed the simulation by one time step with the given resolution."""

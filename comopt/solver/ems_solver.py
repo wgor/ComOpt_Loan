@@ -1,5 +1,4 @@
 from typing import List, Tuple, Union
-import cplex
 
 from pandas import DataFrame, MultiIndex, Series, to_timedelta, DatetimeIndex
 from numpy import isnan, nanmin, nanmax
