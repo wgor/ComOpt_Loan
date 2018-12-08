@@ -331,7 +331,7 @@ def device_scheduler(
     xfrm = TransformationFactory("gdp.bigm")
     xfrm.apply_to(model)
     solver = SolverFactory(
-        "cplex", executable="D:/CPLEX/Studio/cplex/bin/x64_win64/cplex"
+        "cplex"
     )
     # solver.options['CPXchgprobtype'] = "CPXPROB_QP"
     # solver.options["solver"] = "CPXqpopt"

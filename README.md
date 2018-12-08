@@ -9,7 +9,7 @@ A simulation is executed as a Markov Decision Process from the perspective of on
 
 - Prosumer, or Energy Management System (EMS)
 - Aggregator (AGR), or trading agent (TA)
-- Flexibility Requesting Party (FRP)
+- Flexibility Requesting Party (FRP), or market agent (MA)
 
 
 ## Build & Run
@@ -21,11 +21,12 @@ A simulation is executed as a Markov Decision Process from the perspective of on
 * Activate it, e.g.: `source comopt-venv/bin/activate`
 * Install the `comopt` package and dependencies:
 
-      python setup.py [develop|install]
-      
-### Demo instructions
-ø
-1) Open Excel, click on "Clear Results"-Button.
-2) Run run_opt.py from folder.
-3) Click on "Agent 01","Agent 02","Agent 03"-Buttons to see Plots for the results.
+    python setup.py [develop|install]
 
+* Install the `cplex` package and dependencies from `<your cplex path>/python`:
+
+    python setup.py [develop|install]
+
+### Demo instructions
+
+Run `start_sim.py` to start a simulation.

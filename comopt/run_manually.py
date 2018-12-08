@@ -84,11 +84,6 @@ from comopt.plotting.profile_plots import (
 import time
 from random import uniform, randint, gauss, seed
 
-import matplotlib.pyplot as plt
-import pickle
-import numpy as np
-from pandas import Series
-
 # Set horizon
 start_time = time.time()
 start = datetime(year=2018, month=6, day=1, hour=12)
@@ -122,13 +117,10 @@ dispatch_factor_load = 0.25
 dispatch_factor_solar = 1
 deviation_multiplicator = 1
 
-imbalance_prices_test_profile_1_day
 imbalances_test_profile_1_day[:] = 2
-imbalances_test_profile_1_day
 solar_test_profile_1_day[:] = 0
 
 deviation_prices[:] = imbalance_prices_test_profile_1_day * 1.2
-deviation_prices
 # for e,idx in enumerate(imbalances_test_profile_1_day.index):
 #     if e % 4 == 0:
 #         imbalances_test_profile_1_day.loc[idx] = -2
@@ -304,7 +296,7 @@ env = Environment(
 env.run_model()
 # execution time i minutes
 execution_time = (time.time() - start_time) / 60
-execution_time
+
 # Cut off head and tail for analysis
 cut_head = timedelta(days=1)
 cut_tail = timedelta(days=1)
