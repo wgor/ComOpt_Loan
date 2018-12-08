@@ -106,10 +106,8 @@ deviation_prices[:] = imbalance_prices_test_profile_1_day * 1.2
 
 # ------------OPTIONAL END-------------#
 input_data = {
-    # Optimiziation Input Parameter:
+    # Optimization Input Parameter:
     "Seed": seed(111),
-    # TODO: Find all Flow multipliers and replace it with the input data
-    "Flow unit multiplier": resolution.seconds / 3600,
     "Balancing opportunities":
     # single_curtailment_or_shift_each_day_between_10_and_12_am(start=start, end=end, resolution=resolution),
     # single_curtailment_or_shift_each_day_between_12_and_14_pm(start=start, end=end, resolution=resolution),
@@ -173,7 +171,7 @@ input_data = {
     "MA horizon": timedelta(hours=1),
     "TA horizon": timedelta(hours=1),
     "Step_now": 0,
-    # Prognosis negotiaton parameter
+    # Prognosis negotiation parameter
     "Prognosis rounds": 10,
     "MA prognosis policy": buy_with_stochastic_prices,
     # MA POLICIES:

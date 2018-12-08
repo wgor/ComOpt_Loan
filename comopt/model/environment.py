@@ -49,7 +49,7 @@ class Environment:
         self.total_steps = (
             end - start - max(input_data["TA horizon"], input_data["MA horizon"])
         ) / resolution
-        self.flow_unit_multiplier = input_data["Flow unit multiplier"]
+        self.flow_unit_multiplier = resolution.seconds / 3600  # TODO: Replace usage of this attribute with self.resolution
         # self.commitment_snapshots = commitment_snapshots(start=start, end=end, ta_horizon=input_data["TA horizon"], ma_horizon=input_data["MA horizon"])
 
         # Set up agents
