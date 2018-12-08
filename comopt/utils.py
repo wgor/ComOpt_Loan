@@ -1,4 +1,6 @@
+import os
 from typing import Dict
+import pickle
 
 from pandas import DataFrame, ExcelFile
 
@@ -28,3 +30,13 @@ def data_import(file) -> Dict[str, DataFrame]:
             except ValueError:
                 output[sheet] = xl.parse(sheet_name=sheet)
     return output
+
+
+def save_env(env):
+    """Save an environment as a pickle."""
+    path = '../results/simulation_environment_%s.pickle'
+    i = 0
+    while os.path.exists(path % i):
+        i += 1
+    with open(path % i, 'wb') as handle:
+        pickle.dump(env, handle, protocol=pickle.HIGHEST_PROTOCOL)

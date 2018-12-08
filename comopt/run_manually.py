@@ -62,7 +62,7 @@ from comopt.model.utils import (
     gauss_2,
     no_noise,
 )
-from comopt.utils import data_import
+from comopt.utils import save_env
 from comopt.plotting.negotiation_plots import plot_negotiation_data
 from comopt.plotting.profile_plots import (
     plot_ems_data,
@@ -273,12 +273,12 @@ env = Environment(
     input_data=input_data,
 )
 
-# pickling_on = open("2hours_cleared_simple_res_prices.pickle","wb")
-# pickle.dump(env, pickling_on)
-# pickling_on.close()
-
 # Run simulation model
 env.run_model()
+
+# Save simulation results
+save_env(env)
+
 
 # Cut off head and tail for analysis
 cut_head = timedelta(days=1)

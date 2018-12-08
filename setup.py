@@ -7,7 +7,7 @@ setup(
     version="0.1",
     install_requires=[
         "pandas",
-        "numpy",
+        "numpy>=1.15.4",
         "pyomo",
         "cplex",
         "enlopy",
