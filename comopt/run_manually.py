@@ -5,9 +5,8 @@ from pandas import set_option
 
 from comopt.model.environment import Environment
 from comopt.scenario.balancing_opportunities import (
-    single_curtailment_each_day_between_2_and_3_am,
-    single_curtailment_or_shift_each_day_between_10_and_12_am,
-    single_curtailment_or_shift_each_day_between_12_and_14_pm,
+    single_curtailment_each_day_from_hours_a_to_b,
+    single_curtailment_or_shift_each_day_from_hours_a_to_b,
     generated_imbalance_profile,
 )
 
@@ -109,8 +108,8 @@ input_data = {
     # Optimization Input Parameter:
     "Seed": seed(111),
     "Balancing opportunities":
-    # single_curtailment_or_shift_each_day_between_10_and_12_am(start=start, end=end, resolution=resolution),
-    # single_curtailment_or_shift_each_day_between_12_and_14_pm(start=start, end=end, resolution=resolution),
+    # single_curtailment_or_shift_each_day_from_hours_a_to_b(start=start, end=end, resolution=resolution, a=10, b=12),
+    # single_curtailment_or_shift_each_day_from_hours_a_to_b(start=start, end=end, resolution=resolution, a=12, b=14),
     generated_imbalance_profile(
         start=start,
         end=end,

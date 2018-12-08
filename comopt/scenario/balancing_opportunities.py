@@ -22,14 +22,14 @@ def none_ever(start: datetime, end: datetime, resolution: timedelta) -> DataFram
     )
 
 
-def single_curtailment_each_day_between_2_and_3_am(
-    start: datetime, end: datetime, resolution: timedelta
+def single_curtailment_each_day_from_hours_a_to_b(
+    start: datetime, end: datetime, resolution: timedelta, a: int, b: int
 ) -> DataFrame:
-    """Each day it is valuable to curtail production between 2 and 3 am."""
-    opportunity_start_time = "2:00"
-    opportunity_end_time = "3:00"
+    """Each day it is valuable to curtail production from hours a to b (e.g. between 2 and 3 am)."""
+    opportunity_start_time = "%s:00" % a
+    opportunity_end_time = "%s:00" % b
     imbalance_value = 100  # MW
-    imbalance_price_between_2_and_3_am = 10  # EUR/MWh
+    imbalance_price_from_hours_a_to_b = 10  # EUR/MWh
     df = initialize_df(
         columns=["Imbalance (in MW)", "Price (in EUR/MWh)"],
         start=start,
@@ -49,18 +49,19 @@ def single_curtailment_each_day_between_2_and_3_am(
             end_time=opportunity_end_time,
             include_end=False,
         )
-    ] = imbalance_price_between_2_and_3_am
+    ] = imbalance_price_from_hours_a_to_b
     return df
 
 
-def single_curtailment_or_shift_each_day_between_10_and_12_am(
-    start: datetime, end: datetime, resolution: timedelta
+def single_curtailment_or_shift_each_day_from_hours_a_to_b(
+    start: datetime, end: datetime, resolution: timedelta, a: int, b: int
 ) -> DataFrame:
-    """Each day it is valuable to curtail production between 2 and 3 am, or to shift consumption to that period."""
-    imbalance_start_time = "10:00"
-    imbalance_end_time = "14:00"
+    """Each day it is valuable to curtail production from hours a to b (e.g. between 2 and 3 am),
+    or to shift consumption to that period."""
+    imbalance_start_time = "%s:00" % a
+    imbalance_end_time = "%s:00" % b
     imbalance_value = 2  # MW
-    imbalance_price_between_2_and_3_am = 10  # EUR/MWh
+    imbalance_price_from_hours_a_to_b = 10  # EUR/MWh
     imbalance_price_otherwise = 5  # EUR/MWh
     df = initialize_df(
         columns=["Imbalance (in MW)", "Price (in EUR/MWh)"],
@@ -83,41 +84,7 @@ def single_curtailment_or_shift_each_day_between_10_and_12_am(
             end_time=imbalance_end_time,
             include_end=False,
         )
-    ] = imbalance_price_between_2_and_3_am
-    return df
-
-
-def single_curtailment_or_shift_each_day_between_12_and_14_pm(
-    start: datetime, end: datetime, resolution: timedelta
-) -> DataFrame:
-    """Each day it is valuable to curtail production between 2 and 3 am, or to shift consumption to that period."""
-    imbalance_start_time = "12:00"
-    imbalance_end_time = "14:00"
-    imbalance_value = -2  # MW
-    imbalance_price_between_2_and_3_am = 10  # EUR/MWh
-    imbalance_price_otherwise = 5  # EUR/MWh
-    df = initialize_df(
-        columns=["Imbalance (in MW)", "Price (in EUR/MWh)"],
-        start=start,
-        end=end,
-        resolution=resolution,
-    )
-    df["Imbalance (in MW)"] = 0
-    df["Imbalance (in MW)"].iloc[
-        df.index.indexer_between_time(
-            start_time=imbalance_start_time,
-            end_time=imbalance_end_time,
-            include_end=False,
-        )
-    ] = imbalance_value
-    df["Price (in EUR/MWh)"] = imbalance_price_otherwise
-    df["Price (in EUR/MWh)"].iloc[
-        df.index.indexer_between_time(
-            start_time=imbalance_start_time,
-            end_time=imbalance_end_time,
-            include_end=False,
-        )
-    ] = imbalance_price_between_2_and_3_am
+    ] = imbalance_price_from_hours_a_to_b
     return df
 
 
