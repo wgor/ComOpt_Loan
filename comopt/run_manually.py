@@ -75,13 +75,6 @@ start = datetime(year=2018, month=6, day=1, hour=12)
 end = datetime(year=2018, month=6, day=1, hour=16)
 resolution = timedelta(minutes=15)
 
-# Set EMS agents
-number_of_agents = 1
-ems_names = []
-for number in range(1, number_of_agents + 1):
-    ems_name = "EMS " + str(number)
-    ems_names.append(ems_name)
-
 # --------------PICKLE PROFILES---------------#
 pickled_profiles = pickle_profiles(start=start, end=end, resolution=resolution)
 imbalances_test_profile_1_day = pickled_profiles["imbalances_test_profile_1_day"]
@@ -269,7 +262,6 @@ env = Environment(
     start=start,
     end=end,
     resolution=resolution,
-    ems_names=ems_names,
     input_data=input_data,
 )
 

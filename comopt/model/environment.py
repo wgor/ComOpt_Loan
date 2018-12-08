@@ -32,7 +32,6 @@ class Environment:
         start: datetime,
         end: datetime,
         resolution: timedelta,
-        ems_names: List[str],
         input_data: Dict[str, Union[DataFrame, Series, timedelta, bool, Callable]],
     ):
         """Create simulation environment."""
@@ -54,18 +53,17 @@ class Environment:
         # self.commitment_snapshots = commitment_snapshots(start=start, end=end, ta_horizon=input_data["TA horizon"], ma_horizon=input_data["MA horizon"])
 
         # Set up agents
-        ems_agents = []
-        for a, ems_name in enumerate(ems_names):
-            ems_agents.append(
-                EMS(
-                    name=ems_name,
-                    environment=self,
-                    devices=input_data["Devices"][a],
-                    ems_constraints=input_data["EMS constraints"][a],
-                    ems_prices=input_data["EMS prices"][a],
-                )
+        num_ems = len(input_data["EMS constraints"])
+        self.ems_agents = [
+            EMS(
+                name="EMS %s" % (a + 1),
+                environment=self,
+                devices=input_data["Devices"][a],
+                ems_constraints=input_data["EMS constraints"][a],
+                ems_prices=input_data["EMS prices"][a],
             )
-        self.ems_agents = ems_agents
+            for a in range(num_ems)
+        ]
         self.market_agent = MarketAgent(
             name="Market agent",
             environment=self,
