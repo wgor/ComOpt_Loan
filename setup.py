@@ -11,14 +11,18 @@ setup(
         "dash-core-components==0.21.0rc1",  # ==0.21.0rc1
         "dash-html-components",  # ==0.11.0
         "dash-table-experiments",  # ==0.6.0
-        "pandas>=0.22.0",
+        "pandas",  # >=0.22.0
+        "numpy",  # ==1.14.5
         "xlrd>=0.9.0",
         "pulp==1.6.8",
+        "pyomo",
+        "glpk",
+        "enlopy",
         "matplotlib==2.2.2",
     ],
     setup_requires=["pytest-runner"],
     tests_require=["pytest"],
-    packages=["comopt_app"],
+    packages=["comopt"],
     include_package_data=True,
     # license="Apache",
     classifiers=[
