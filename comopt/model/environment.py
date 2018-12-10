@@ -56,7 +56,7 @@ class Environment:
             EMS(
                 name="EMS %s" % (a + 1),
                 environment=self,
-                devices=input_data["Devices"][a],
+                devices=input_data["Device constraints"][a],
                 ems_constraints=input_data["EMS constraints"][a],
                 ems_prices=input_data["EMS prices"][a],
             )

@@ -123,9 +123,9 @@ input_data = {
         imbalance_prices=imbalance_prices_test_profile_1_day,
     ),
     "EMS constraints": [
-        grid_connection(start=start, end=end, resolution=resolution, capacity=100)
+        grid_connection(start=start, end=end, resolution=resolution, capacity=100),  # Todo: List should have the same length as the number of EMSs
     ],
-    "Devices": [
+    "Device constraints": [
         # Profilenames need to contain "consumption", "generation", "battery", "buffer" as keywords for the plotting function!
         [  # >>>>>> EMS 1 <<<<<#
             # 1) Load
@@ -162,7 +162,7 @@ input_data = {
         [],  # >>>>>> EMS 3 <<<<<#
     ],  # Devices is a list, where each item is a device (we haven't got a class for devices, so a device is just a tuple with a device type name and a constraints dataframe)
     # self.gradient_down = gradient[0] * flow_unit_multiplier
-    "EMS prices": [(feed_in_price, purchase_price)],
+    "EMS prices": [(feed_in_price, purchase_price), (feed_in_price, purchase_price), (feed_in_price, purchase_price)],
     "MA deviation prices": deviation_prices,
     "MA deviation multiplicator": deviation_multiplicator,  # can be used to increase the deviation prices in each step
     "MA imbalance market costs": imbalance_market_costs,
