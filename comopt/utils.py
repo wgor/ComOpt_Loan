@@ -34,7 +34,10 @@ def data_import(file) -> Dict[str, DataFrame]:
 
 def save_env(env):
     """Save an environment as a pickle."""
-    path = '../results/simulation_environment_%s.pickle'
+    path = './results/'
+    if not os.path.exists(path):
+        os.makedirs(path)
+    path = './results/simulation_environment_%s.pickle'
     i = 0
     while os.path.exists(path % i):
         i += 1
