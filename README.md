@@ -17,8 +17,8 @@ A simulation is executed as a Markov Decision Process from the perspective of on
 ### Dependencies:
 
 * Make a virtual environment: `python3.6 -m venv comopt-venv` or use a different tool like `mkvirtualenv`. You can also use
-  an [Anaconda distribution](https://conda.io/docs/user-guide/tasks/manage-environments.html) as base.
-* Activate it, e.g.: `source comopt-venv/bin/activate`
+  an [Anaconda distribution](https://conda.io/docs/user-guide/tasks/manage-environments.html) as base, with `conda create -n comopt-venv python=3.6`
+* Activate it, e.g.: `source comopt-venv/bin/activate` or, with conda, `activate comopt-venv`.
 * Install the `comopt` package and dependencies:
 
     python setup.py [develop|install]
