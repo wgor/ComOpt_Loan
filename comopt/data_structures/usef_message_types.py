@@ -43,10 +43,12 @@ class FlexOffer(Offer):
 
     def __init__(
         self,
+        description: str,
         flex_request: FlexRequest,
         offered_flexibility: Series = None,
         **kwargs,
     ):
+        self.description = description
         self.offered_flexibility = offered_flexibility
         super().__init__(**kwargs)
         self.flex_request = flex_request
@@ -107,7 +109,8 @@ class DeviceMessage(Request, Order):
     Can be a request or an order.
     """
 
-    def __init__(self, targeted_flexibility: Series, order: bool = False, **kwargs):
+    def __init__(self, description: str, targeted_flexibility: Series, costs: float = None, order: bool = False, **kwargs):
+        self.description = description
         self.targeted_flexibility=targeted_flexibility
         if order:
             if "ordered_values" not in kwargs:
@@ -116,8 +119,9 @@ class DeviceMessage(Request, Order):
                     kwargs.pop("requested_values", None)
                 except KeyError:
                     raise KeyError("Specify ordered_values")
-            Order.__init__(self, **kwargs)
+            Order.__init__(self,costs=costs, **kwargs)
             self.ordered_power = self.commitment.constants
+            self.costs = costs
         else:
 
             Request.__init__(self, **kwargs)

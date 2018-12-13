@@ -42,42 +42,41 @@ class MarketAgent(Agent):
         """ Creates an instance of the Class MarketAgent. Inherits from the Class Agent """
         super().__init__(name, environment)
         columns = [
+            "Prognosis values",
+            "Prognosis costs",
             "Requested flexibility",
-            "Negotiated flexibility",
-            "Agreed flexibility",
+            "Commited flexibility",
             "Received flexibility",
-            "Paid flexibility costs",
+            "Deviated flexibility",
+            "Deviation prices",
+            "Flexibility costs",
             "Deviation revenues",
             "Remaining imbalances",
             "Remaining market costs",
-            "Market prices",
+            "Imbalance market prices",
             "Opportunity costs",
         ]
         self.commitment_data = initialize_df(
             columns, environment.start, environment.end, environment.resolution
         )
-        self.commitment_data.loc[:, "Requested flexibility"] = balancing_opportunities.loc[
-            :, "Imbalance (in MW)"
-        ]
-        self.commitment_data.loc[:, "Requested flexibility"] = balancing_opportunities.loc[
-            :, "Imbalance (in MW)"
-        ]
-        # self.commitment_data.loc[:, "Remaining imbalances"] = balancing_opportunities.loc[
-        #     :, "Imbalance (in MW)"
-        # ]
+
+        self.commitment_data.loc[:, "Deviation prices"] = deviation_prices
+        self.commitment_data.loc[:, "Requested flexibility"] = balancing_opportunities.loc[:, "Imbalance (in MW)"]
+        self.commitment_data.loc[:, "Imbalance market price"] = balancing_opportunities.loc[:, "Price (in EUR/MWh)"]
+        self.commitment_data.loc[:, "Remaining market costs"] = imbalance_market_costs
         # self.commitment_data.loc[:, "Received flexibility"] = 0
 
         self.flex_trade_horizon = flex_trade_horizon
 
         self.balancing_opportunities = balancing_opportunities
         self.deviation_prices = deviation_prices
-        self.deviation_prices_realised = []
+        self.deviation_prices_realised = [] #
         self.sticking_factor = sticking_factor
         self.prognosis_policy = prognosis_policy
         self.prognosis_parameter = prognosis_parameter
         self.flexrequest_policy = flexrequest_policy
         self.flexrequest_parameter = flexrequest_parameter
-        self.deviation_multiplicator = deviation_multiplicator
+        self.deviation_multiplicator = deviation_multiplicator #
         self.imbalance_market_costs = imbalance_market_costs
 
     def post_prognosis_request(self) -> Request:
@@ -118,6 +117,7 @@ class MarketAgent(Agent):
         if uniform(0, 0.99) >= self.sticking_factor:
 
             print("\n----------------MA: POST FLEX REQUEST---------------------")
+
             original_commitment_opportunities = self.balancing_opportunities.loc[
                 flex_trade_window[0] : flex_trade_window[1]
                 - self.environment.resolution,
@@ -127,7 +127,7 @@ class MarketAgent(Agent):
             already_bought_commitment = self.commitment_data.loc[
                 flex_trade_window[0] : flex_trade_window[1]
                 - self.environment.resolution,
-                "Agreed flexibility",
+                "Commited flexibility",
             ].values
 
             remaining_commitment_opportunities = [
@@ -146,6 +146,7 @@ class MarketAgent(Agent):
             requested_values["requested_flex_imbalance_market_costs"] = self.imbalance_market_costs.loc[
                                                                         flex_trade_window[0] : flex_trade_window[1] - self.environment.resolution] \
 
+
             # prognosis.commitment.constants.loc[
             # flex_trade_window[0] : flex_trade_window[1] - self.environment.resolution] + remaining_commitment_opportunities
             print("Prognosis power values \n" + str(prognosis.commitment.constants))
@@ -163,11 +164,24 @@ class MarketAgent(Agent):
             print("\nMA: Requested Power values: {}".format(requested_values["requested_power"]))
             print("\nMA: Requested Flex values: {}\n".format(requested_values["requested_flexibility"]))
 
-        else:
+        else: # TODO: Fix sticking
             requested_power["requested_power"] = prognosis.commitment.constants
 
             print("----------------MA: STICKING ---------------------\n")
             print("MA: Request sticking to prognosis values: {}\n".format(prognosis.commitment.constants))
+
+        # Assign MAs reservation price for flexibility negotiationabs
+        self.flexrequest_parameter["Reservation price"] = sum(
+            self.imbalance_market_costs.loc[
+            flex_trade_window[0] : flex_trade_window[1]
+            - self.environment.resolution
+            ]
+        )
+
+        # Store requested flexibility in MA commitment data
+        self.commitment_data.loc[flex_trade_window[0] : flex_trade_window[1] - self.environment.resolution, \
+                                 "Requested flexibility"] \
+                                = requested_values["requested_flexibility"]
 
         return FlexRequest(
             id=self.environment.plan_board.get_message_id(),
@@ -176,8 +190,8 @@ class MarketAgent(Agent):
             costs=requested_values["requested_flex_imbalance_market_costs"],
             deviation_cost_curve=DeviationCostCurve(
                 gradient=(
-                    self.deviation_prices.loc[self.environment.now] * -1,
-                    self.deviation_prices.loc[self.environment.now],
+                    self.commitment_data.loc[self.environment.now, "Deviation prices"] * -1,
+                    self.commitment_data.loc[self.environment.now, "Deviation prices"],
                 ),
                 flow_unit_multiplier=self.environment.flow_unit_multiplier,
             ),
@@ -186,16 +200,17 @@ class MarketAgent(Agent):
 
     def get_prognosis(self, prognosis) -> Prognosis:
         """Callback function to let the Market Agent get a Prognosis."""
+
         return prognosis
 
     def get_flex_offer(self, flex_offer: FlexOffer) -> FlexOffer:
         """Callback function to let the Market Agent get a FlexOffer."""
 
-        if flex_offer is not None:
-            idx = flex_offer.commitment.constants.index
-            if (isnull(self.commitment_data.loc[self.environment.now, "Negotiated flexibility"]) == True):
-                for row, val in enumerate(flex_offer.commitment.constants.loc[flex_offer.start : (flex_offer.end - flex_offer.resolution)]):
-                    self.commitment_data.loc[idx[row], "Negotiated flexibility"] = flex_offer.offered_flexibility.loc[idx[row]]
+        # if flex_offer is not None:
+        #     idx = flex_offer.commitment.constants.index
+        #     if (isnull(self.commitment_data.loc[self.environment.now, "Negotiated flexibility"]) == True):
+        #         for row, val in enumerate(flex_offer.commitment.constants.loc[flex_offer.start : (flex_offer.end - flex_offer.resolution)]):
+        #             self.commitment_data.loc[idx[row], "Negotiated flexibility"] = flex_offer.offered_flexibility.loc[idx[row]]
 
         # print("MA: Negotiated Flex: {} \n".format(self.commitment_data["Negotiated flexibility"]))
 
@@ -254,10 +269,11 @@ class MarketAgent(Agent):
         return
 
     def step(self):
+        return
 
         # Store commitments
-        self.store_sold_power()
-        self.deviation_prices_realised.append(
-            self.deviation_prices[self.environment.now]
-        )
-        self.deviation_prices = self.deviation_prices * self.deviation_multiplicator
+        # self.store_sold_power()
+        # self.commitment_data.loc[:, "Deviation prices"]_realised.append(
+        #     self.commitment_data.loc[:, "Deviation prices"][self.environment.now]
+        # )
+        # self.deviation_prices = self.deviation_prices * self.deviation_multiplicator

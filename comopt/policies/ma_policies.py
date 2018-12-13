@@ -1,7 +1,7 @@
 from typing import List, Optional, Union, Tuple, Callable
 from random import uniform, gauss, seed
 from numpy import abs, sin, cos
-from comopt.model.utils import (
+from comopt.model.negotiation_utils import (
     root_divided_by_2,
     linear,
     cos_root_divided_by_2,

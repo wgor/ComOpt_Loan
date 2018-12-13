@@ -2,7 +2,8 @@ from typing import Callable, Dict, List, Union
 from datetime import datetime, timedelta
 
 from pandas import DataFrame, Series
-from comopt.model.utils import create_negotiation_log, initialize_index
+from comopt.model.utils import initialize_index
+from comopt.model.negotiation_utils import create_negotiation_data_log
 from comopt.model.market_agent import MarketAgent
 from comopt.model.plan_board import PlanBoard
 from comopt.model.trading_agent import TradingAgent
@@ -94,69 +95,13 @@ class Environment:
             prognosis_parameter=input_data["TA prognosis parameter"],
             prognosis_learning_parameter=input_data["Q parameter prognosis"],
             flexrequest_policy=input_data["TA flexrequest policy"],
-            flexrequest_rounds=input_data["Flexrequest rounds"],
             flexrequest_parameter=input_data["TA flexrequest parameter"],
             flexrequest_learning_parameter=input_data["Q parameter flexrequest"],
+            flexrequest_rounds=input_data["Flexrequest rounds"],
         )
         # Set up planboard
-        self.plan_board = PlanBoard(start=start, end=end, resolution=resolution)
-        # Create message log for each time period
-        self.plan_board.create_message_logs(
-            start=start, end=end, resolution=resolution, environment=self
-        )
-
-        # TODO: refactor to PlanBoard def __init__:
-        # Set up prognosis negotiation log 1
-        self.plan_board.prognosis_negotiation_log_1 = create_negotiation_log(
-            start=self.start,
-            end=self.end
-            - self.resolution
-            - max(
-                self.market_agent.flex_trade_horizon,
-                self.trading_agent.prognosis_horizon,
-            ),
-            resolution=self.resolution,
-            rounds_total=input_data["Prognosis rounds"],
-        )
-
-        # Set up prognosis negotiation log 2
-        self.plan_board.prognosis_negotiation_log_2 = create_negotiation_log(
-            start=self.start,
-            end=self.end
-            - self.resolution
-            - max(
-                self.market_agent.flex_trade_horizon,
-                self.trading_agent.prognosis_horizon,
-            ),
-            resolution=self.resolution,
-            rounds_total=input_data["Prognosis rounds"],
-        )
-
-        # Set up flexrequest negotiation log 1
-        self.plan_board.flexrequest_negotiation_log_1 = create_negotiation_log(
-            start=self.start,
-            end=self.end
-            - self.resolution
-            - max(
-                self.market_agent.flex_trade_horizon,
-                self.trading_agent.prognosis_horizon,
-            ),
-            resolution=self.resolution,
-            rounds_total=input_data["Flexrequest rounds"],
-        )
-
-        # Set up flexrequest negotiation log 2
-        self.plan_board.flexrequest_negotiation_log_2 = create_negotiation_log(
-            start=self.start,
-            end=self.end
-            - self.resolution
-            - max(
-                self.market_agent.flex_trade_horizon,
-                self.trading_agent.prognosis_horizon,
-            ),
-            resolution=self.resolution,
-            rounds_total=input_data["Flexrequest rounds"],
-        )
+        self.plan_board = PlanBoard(start=start, end=end, resolution=resolution,
+                                   input_data=input_data, environment=self)
 
     def run_model(self):
         """Run the model until the end condition is reached."""

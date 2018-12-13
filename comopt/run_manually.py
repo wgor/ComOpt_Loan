@@ -27,13 +27,13 @@ from comopt.scenario.ems_constraints import (
 )
 
 # POLICY FUNCTIONS:
-from comopt.scenario.ma_policies import (
+from comopt.policies.ma_policies import (
     never_buy,
     buy_at_any_cost,
     buy_with_deterministic_prices,
     buy_with_stochastic_prices,
 )
-from comopt.scenario.ta_policies import (
+from comopt.policies.ta_policies import (
     never_sell,
     sell_at_any_cost,
     sell_with_deterministic_prices,
@@ -41,20 +41,20 @@ from comopt.scenario.ta_policies import (
     Q_learning,
 )
 
-# TA Q-LEARNING EXPLORATION FUNCTIONS:
-from comopt.scenario.ta_policies import (
+# TA Q-LEARNING:
+from comopt.policies.learning import (
     choose_action_randomly_using_uniform,
     choose_action_greedily_with_noise,
+    multiply_markup_evenly
 )
 
-# TA Q-LEARNING ACTION FUNCTIONS:
-from comopt.scenario.ta_policies import multiply_markup_evenly
-
 # Concession and Noise Curves:
+from comopt.model.negotiation_utils import (
+    linear, root_divided_by_2, cos_root_divided_by_2, no_shape,
+    uniform_1, gauss_1, gauss_2, no_noise,
+)
 from comopt.model.utils import (
-    initialize_series, initialize_index, linear, root_divided_by_2,
-    cos_root_divided_by_2, no_shape, uniform_1, gauss_1, gauss_2,
-    no_noise,
+    initialize_series, initialize_index
 )
 from comopt.utils import data_import
 from comopt.plotting.negotiation_plots import plot_negotiation_data
@@ -71,6 +71,8 @@ import matplotlib.pyplot as plt
 import pickle
 import numpy as np
 from pandas import Series
+
+# Console output configuration
 
 set_option("display.max_columns", 100)
 set_option("column_space", 5)
@@ -120,7 +122,7 @@ dispatch_factor_load = 0.25
 dispatch_factor_solar = 1
 deviation_multiplicator = 1
 
-imbalance_prices_test_profile_1_day
+imbalance_prices_test_profile_1_day[:] = 50
 imbalances_test_profile_1_day[:] = 2
 imbalances_test_profile_1_day[1] = 20
 imbalances_test_profile_1_day
@@ -240,7 +242,8 @@ input_data = {
         "Step now": 0,
     },
     # Flexrequest negotiaton parameter
-    "Flexrequest rounds": 10,
+    "Flexrequest rounds": (1,5),
+
     "MA flexrequest policy": buy_with_stochastic_prices,
     # MA POLICIES:
     # never_buy
@@ -249,9 +252,11 @@ input_data = {
     # buy_with_stochastic_prices
     "MA flexrequest parameter": {
         "Reservation price": 6.5,  # Placeholder variable
-        "Reservation price factor": 2,
-        "Markup": 0.75,  # Placeholder variable
-        "Markup factor": 1,
+        "Markup": 1,  # Placeholder variable
+        "Adverse costs": 0,
+        "Adverse markup": 1,
+        "Plain costs": 0,
+        "Plain markup": 1,
         "Concession": linear,  # linear, root_divided_by_2, cos_root_divided_by_2, no_shape
         "Noise": no_noise,  #  uniform_1, gauss_1, gauss_2, no_noise
         "Sticking factor": 0,  # Close to 0 means little sticking request, close to 1 means a lot of sticking requests
@@ -264,9 +269,12 @@ input_data = {
     # sell_with_stochastic_prices,
     # Q_learning
     "TA flexrequest parameter": {
-        "Reservation price": 6,  # Placeholder value
-        "Markup factor": 1,
+        "Reservation price": 0,  # Placeholder value
         "Markup": 1,  # Placeholder variable
+        "Adverse costs": 0,
+        "Adverse markup": 1,
+        "Plain costs": 0,
+        "Plain markup": 1,
         "Concession": no_shape,  # linear, root_divided_by_2, cos_root_divided_by_2, no_shape
         "Noise": no_noise,  # #  uniform_1, gauss_1, gauss_2, no_noise
     },
@@ -325,13 +333,13 @@ env.trading_agent.cleared_flex_negotiations
 # %%
 
 plt_2 = plot_negotiation_data(
-    negotiation_data_df=env.plan_board.flexrequest_negotiation_log_1,
+    negotiation_data=env.plan_board.flexrequest_negotiation_log_1,
     q_tables=env.trading_agent.stored_q_tables_flexrequest_1,
     action_tables=env.trading_agent.stored_action_tables_flexrequest_1,
     input_data=input_data,
 )
 
-# plt_1 = plot_negotiation_data(negotiation_data_df=env.plan_board.prognosis_negotiation_log_1,
+# plt_1 = plot_negotiation_data(negotiation_data=env.plan_board.prognosis_negotiation_log_1,
 #                       q_tables=env.trading_agent.stored_q_tables_prognosis_1,
 #                       action_tables=env.trading_agent.stored_action_tables_prognosis_1,
 #                       input_data = input_data,
