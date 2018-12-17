@@ -25,37 +25,42 @@ def get_TA_bid_from_sample(policy_function: Callable) -> Callable:
     def policy_function_wrapper(
         rounds_total: int,
         rounds_left: int,
-        ta_parameter: dict,
         q_table_df: DataFrame,
         q_parameter: dict,
+        **ta_parameter: dict,
     ) -> dict:
+
+        noise = ta_parameter["noise"]
+        concession = ta_parameter["concession"]
+        ta_parameter.pop("noise")
+        ta_parameter.pop("concession")
 
         # Get return values from wrapped policy function -> dict()
         ta = policy_function(
             rounds_total=rounds_total,
             rounds_left=rounds_left,
-            ta_parameter=ta_parameter,
+            **ta_parameter,
             q_table_df=q_table_df,
             q_parameter=q_parameter,
         )
 
         # Modify shaped markup based on choosen exploration function
-        ta["Markup"] = (
-            ta["Markup"]
-            + ta["Noise"](
-                rounds_total=rounds_total, rounds_left=rounds_left, mean=ta["Markup"]
+        ta["markup"] = (
+            ta["markup"]
+            + noise(
+                rounds_total=rounds_total, rounds_left=rounds_left, mean=ta["markup"]
             )
-        ) * ta["Concession"](rounds_total=rounds_total, rounds_left=rounds_left)
-        ta["Bid"] = ta["Reservation price"] + ta["Markup"]
+        ) * concession(rounds_total=rounds_total, rounds_left=rounds_left)
+        ta["Bid"] = ta["reservation_price"] + ta["markup"]
 
         # If TAs bid is lower than his reservation price, use reservation price instead
-        if ta["Bid"] < ta["Reservation price"]:
-            ta["Bid"] = ta["Reservation price"]
+        if ta["Bid"] < ta["reservation_price"]:
+            ta["Bid"] = ta["reservation_price"]
 
         return {
             "Bid": ta["Bid"],
-            "Reservation price": ta["Reservation price"],
-            "Markup": ta["Markup"],
+            "reservation_price": ta["reservation_price"],
+            "markup": ta["markup"],
             "Q_Table": None,
             "Q_Parameter": q_parameter,
             "Action": None,
@@ -73,7 +78,7 @@ def get_TA_bid_from_learning(policy_function: Callable) -> Callable:
         rounds_left: int,
         q_table_df: DataFrame,
         q_parameter: dict,
-        ta_parameter: dict,
+        **ta_parameter: dict,
     ) -> dict:
 
         round_now = rounds_total - rounds_left + 1
@@ -84,7 +89,7 @@ def get_TA_bid_from_learning(policy_function: Callable) -> Callable:
             rounds_left=rounds_left,
             q_table_df=q_table_df,
             q_parameter=q_parameter,
-            ta_parameter=ta_parameter,
+            **ta_parameter,
         )
 
         # Use an exploration function to choose an action
@@ -103,16 +108,16 @@ def get_TA_bid_from_learning(policy_function: Callable) -> Callable:
         )
 
         # Compute bid based on reservation price and modified markup
-        ta["Bid"] = ta["Reservation price"] + ta["Markup"]
+        ta["Bid"] = ta["reservation_price"] + ta["markup"]
 
         # If TAs bid is lower than his reservation price, use reservation price instead
-        if ta["Bid"] < ta["Reservation price"]:
-            ta["Bid"] = ta["Reservation price"]
+        if ta["Bid"] < ta["reservation_price"]:
+            ta["Bid"] = ta["reservation_price"]
 
         return {
             "Bid": ta["Bid"],
-            "Reservation price": ta["Reservation price"],
-            "Markup": ta["Markup"],
+            "reservation_price": ta["reservation_price"],
+            "markup": ta["markup"],
             "Action": action,
         }
 
@@ -219,7 +224,7 @@ def multiply_markup_evenly(
     if markup is not None:
         markup = markup * actions[action]
 
-    return {"Markup": markup, "Actions": actions}
+    return {"markup": markup, "Actions": actions}
 
 
 # ------------------------------ DECORATED SAMPLING POLICY FUNCTIONS ------------------------------------#
@@ -239,8 +244,8 @@ def never_sell(
 
     return {
         "Bid": 0,
-        "Reservation price": reservation_price,
-        "Markup": markup,
+        "reservation_price": reservation_price,
+        "markup": markup,
         "Shape": concession_curve,
         "Q_Table": None,
         "Q_Parameter": q_parameter,
@@ -266,8 +271,8 @@ def sell_at_any_cost(
 
     return {
         "Bid": 0,
-        "Reservation price": reservation_price,
-        "Markup": markup,
+        "reservation_price": reservation_price,
+        "markup": markup,
         "Shape": concession_curve,
         "Q_Table": None,
         "Q_Parameter": q_parameter,
@@ -292,8 +297,8 @@ def sell_with_deterministic_prices(
 
     return {
         "Bid": 0,
-        "Reservation price": reservation_price,
-        "Markup": markup,
+        "reservation_price": reservation_price,
+        "markup": markup,
         "Shape": concession_curve,
         "Q_Table": None,
         "Q_Parameter": q_parameter,
@@ -308,7 +313,7 @@ def sell_with_stochastic_prices(
     rounds_left: int,
     q_table_df: DataFrame,
     q_parameter: dict,
-    ta_parameter: dict,
+    **ta_parameter: dict,
 ) -> dict:
 
     # Add additional logic here:
@@ -316,10 +321,10 @@ def sell_with_stochastic_prices(
 
     return {
         "Bid": 0,
-        "Reservation price": ta_parameter["Reservation price"],
-        "Markup": ta_parameter["Markup"],
-        "Concession": ta_parameter["Concession"],
-        "Noise": ta_parameter["Noise"],
+        "reservation_price": ta_parameter["reservation_price"],
+        "markup": ta_parameter["markup"],
+        # "concession": ta_parameter["concession"],
+        # "noise": ta_parameter["noise"],
         "Q_Table": None,
         "Q_Parameter": q_parameter,
         "Action": None,
@@ -334,7 +339,7 @@ def Q_learning(
     rounds_left: int,
     q_table_df: DataFrame,
     q_parameter: dict,
-    ta_parameter: dict,
+    **ta_parameter: dict,
 ) -> dict:
 
     # Add additional logic here:
@@ -342,10 +347,10 @@ def Q_learning(
 
     return {
         "Bid": 0,
-        "Reservation price": ta_parameter["Reservation price"],
-        "Markup": ta_parameter["Markup"],
-        "Concession": ta_parameter["Concession"],
-        "Noise": ta_parameter["Noise"],
+        "reservation_price": ta_parameter["reservation_price"],
+        "markup": ta_parameter["markup"],
+        "concession": ta_parameter["concession"],
+        "noise": ta_parameter["noise"],
         "Q_Table": q_table_df,
         "Q_Parameter": q_parameter,
         "Action": None,

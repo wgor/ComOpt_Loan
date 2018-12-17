@@ -21,34 +21,39 @@ def get_MA_bid_from_sample(policy_function: Callable):
     @wraps(policy_function)
     # @wraps allows to keep the object properties of the wrapped functions (e.g. sell_at_any_cost.__name__)
     def policy_function_wrapper(
-        rounds_total: int, rounds_left: int, ma_parameter: dict
+        rounds_total: int, rounds_left: int, **ma_parameter: dict
     ) -> dict:
+
+        noise = ma_parameter["noise"]
+        concession = ma_parameter["concession"]
+        ma_parameter.pop("noise")
+        ma_parameter.pop("concession")
 
         ma = policy_function(
             rounds_total=rounds_total,
             rounds_left=rounds_left,
-            ma_parameter=ma_parameter,
+            **ma_parameter,
         )
-        ma["Markup"] = (
-            ma["Markup"]
-            + ma["Noise"](
-                rounds_total=rounds_total, rounds_left=rounds_left, mean=ma["Markup"]
+        ma["markup"] = (
+            ma["markup"]
+            + noise(
+                rounds_total=rounds_total, rounds_left=rounds_left, mean=ma["markup"]
             )
-        ) * ma["Concession"](rounds_total=rounds_total, rounds_left=rounds_left)
+        ) * concession(rounds_total=rounds_total, rounds_left=rounds_left)
 
-        ma["Bid"] = ma["Reservation price"] - ma["Markup"]
+        ma["Bid"] = ma["reservation_price"] - ma["markup"]
 
         # If TAs bid is lower than his reservation price, use reservation price instead
-        if ma["Bid"] > ma["Reservation price"]:
-            ma["Bid"] = ma["Reservation price"]
+        if ma["Bid"] > ma["reservation_price"]:
+            ma["Bid"] = ma["reservation_price"]
 
         elif ma["Bid"] < 0:
             ma["Bid"] = 0
 
         return {
             "Bid": ma["Bid"],
-            "Reservation price": ma["Reservation price"],
-            "Markup": ma["Markup"],
+            "reservation_price": ma["reservation_price"],
+            "markup": ma["markup"],
         }
 
     return policy_function_wrapper
@@ -71,8 +76,8 @@ def never_buy(
     # e.g if rounds_left == 5, then reservation_price == 10
 
     return {
-        "Reservation price": reservation_price,
-        "Markup": markup,
+        "reservation_price": reservation_price,
+        "markup": markup,
         "Shape": concession_curve,
     }
 
@@ -91,8 +96,8 @@ def buy_at_any_cost(
     # e.g if rounds_left == 5, then reservation_price == 10
 
     return {
-        "Reservation price": reservation_price,
-        "Markup": markup,
+        "reservation_price": reservation_price,
+        "markup": markup,
         "Shape": concession_curve,
     }
 
@@ -106,8 +111,8 @@ def buy_with_deterministic_prices(
     # e.g if rounds_left == 5, then reservation_price == 10
 
     return {
-        "Reservation price": reservation_price,
-        "Markup": markup,
+        "reservation price": reservation_price,
+        "markup": markup,
         "Shape": concession_curve,
     }
 
@@ -115,15 +120,15 @@ def buy_with_deterministic_prices(
 @get_MA_bid_from_sample
 # Samples prices from distribution
 def buy_with_stochastic_prices(
-    rounds_total: int, rounds_left: int, ma_parameter: dict
+    rounds_total: int, rounds_left: int, **ma_parameter: dict
 ) -> dict:
 
     # Add additional logic here:
     # e.g if rounds_left == 5, then reservation_price == 10
     return {
         "Bid": 0,
-        "Reservation price": ma_parameter["Reservation price"],
-        "Markup": ma_parameter["Markup"],
-        "Concession": ma_parameter["Concession"],
-        "Noise": ma_parameter["Noise"],
+        "reservation_price": ma_parameter["reservation_price"],
+        "markup": ma_parameter["markup"],
+        # "concession": ma_parameter["concession"],
+        # "noise": ma_parameter["noise"],
     }

@@ -175,25 +175,25 @@ def start_negotiation(
         ma = ma_policy(
             rounds_total=rounds_total,
             rounds_left=rounds_left,
-            ma_parameter=ma_parameter,
+            **ma_parameter,
         )
         # Store values
-        df.loc[(datetime, round), "MA reservation price"] = ma["Reservation price"]
-        df.loc[(datetime, round), "MA markup"] = around(ma["Markup"], 3)
+        df.loc[(datetime, round), "MA reservation price"] = ma["reservation_price"]
+        df.loc[(datetime, round), "MA markup"] = around(ma["markup"], 3)
         df.loc[(datetime, round), "MA bid"] = around(ma["Bid"], 3)
 
         # Output stores the dict (bid, res, mark_up, action) given as return from get_market_agent_bid
         ta = ta_policy(
             rounds_total=rounds_total,
             rounds_left=rounds_left,
-            ta_parameter=ta_parameter,
             q_table_df=q_table_df,
             q_parameter=q_parameter,
+            **ta_parameter,
         )
 
         # Store values
-        df.loc[(datetime, round), "TA reservation price"] = ta["Reservation price"]
-        df.loc[(datetime, round), "TA markup"] = around(ta["Markup"], 3)
+        df.loc[(datetime, round), "TA reservation price"] = ta["reservation_price"]
+        df.loc[(datetime, round), "TA markup"] = around(ta["markup"], 3)
         df.loc[(datetime, round), "TA bid"] = around(ta["Bid"], 3)
         df.loc[(datetime, round), "TA Counter offer"] = 0
 
@@ -201,8 +201,8 @@ def start_negotiation(
         if ma["Bid"] >= ta["Bid"]:
             df.loc[(datetime, round), "Cleared"] = 1
             df.loc[(datetime, round), "Clearing price"] = ma["Bid"]
-            df.loc[(datetime, round), "MA profit"] = ma["Reservation price"] - ma["Bid"]
-            df.loc[(datetime, round), "TA profit"] = ma["Bid"] - ta["Reservation price"]
+            df.loc[(datetime, round), "MA profit"] = ma["reservation_price"] - ma["Bid"]
+            df.loc[(datetime, round), "TA profit"] = ma["Bid"] - ta["reservation_price"]
 
             # Update q-table in case of clearing.
             q_table_df.loc[round_now, ta["Action"]] = update_q_table(
@@ -222,25 +222,25 @@ def start_negotiation(
             ta = ta_policy(
                 rounds_total=rounds_total,
                 rounds_left=rounds_left,
-                ta_parameter=ta_parameter,
                 q_table_df=q_table_df,
                 q_parameter=q_parameter,
+                **ta_parameter,
             )
             # Store values
             df.loc[(datetime, round), "TA Counter reservation price"] = ta[
-                "Reservation price"
+                "reservation_price"
             ]
-            df.loc[(datetime, round), "TA Counter markup"] = around(ta["Markup"], 3)
+            df.loc[(datetime, round), "TA Counter markup"] = around(ta["markup"], 3)
             df.loc[(datetime, round), "TA Counter offer"] = around(ta["Bid"], 3)
 
             if ma["Bid"] >= ta["Bid"]:
                 df.loc[(datetime, round), "Cleared"] = 1
                 df.loc[(datetime, round), "Clearing price"] = ma["Bid"]
                 df.loc[(datetime, round), "MA profit"] = (
-                    ma["Reservation price"] - ma["Bid"]
+                    ma["reservation_price"] - ma["Bid"]
                 )
                 df.loc[(datetime, round), "TA profit"] = (
-                    ma["Bid"] - ta["Reservation price"]
+                    ma["Bid"] - ta["reservation_price"]
                 )
 
                 # Update q-table in case of clearing.

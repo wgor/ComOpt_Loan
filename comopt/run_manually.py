@@ -179,10 +179,10 @@ input_data = {
     # buy_with_deterministic_prices
     # buy_with_stochastic_prices
     "MA prognosis parameter": {
-        "Reservation price": 4,
-        "Markup": 1,
-        "Concession": root_divided_by_2,  #  linear, root_divided_by_2, cos_root_divided_by_2, no_shape
-        "Noise": gauss_1,  # uniform_1, gauss_1, gauss_2, no_noise
+        "reservation_price": 4,
+        "markup": 1,
+        "concession": root_divided_by_2,  #  linear, root_divided_by_2, cos_root_divided_by_2, no_shape
+        "noise": gauss_1,  # uniform_1, gauss_1, gauss_2, no_noise
     },
     "TA prognosis policy": sell_with_stochastic_prices,
     # TA POLICIES:
@@ -192,10 +192,10 @@ input_data = {
     # sell_with_stochastic_prices,
     # Q_learning
     "TA prognosis parameter": {
-        "Reservation price": 2,
-        "Markup": 1,
-        "Concession": linear,  #  linear, root_divided_by_2, cos_root_divided_by_2, no_shape
-        "Noise": gauss_1,  # uniform_1, gauss_1, gauss_2, no_noise
+        "reservation_price": 2,
+        "markup": 1,
+        "concession": linear,  #  linear, root_divided_by_2, cos_root_divided_by_2, no_shape
+        "noise": gauss_1,  # uniform_1, gauss_1, gauss_2, no_noise
     },
     "Q parameter prognosis": {
         "Gamma": 0.1,  # Reward discount factor
@@ -217,12 +217,12 @@ input_data = {
     # buy_with_deterministic_prices
     # buy_with_stochastic_prices
     "MA flexrequest parameter": {
-        "Reservation price": 6.5,  # Placeholder variable
-        "Reservation price factor": 2,
-        "Markup": 1,  # Placeholder variable
-        "Markup factor": 1,
-        "Concession": linear,  # linear, root_divided_by_2, cos_root_divided_by_2, no_shape
-        "Noise": no_noise,  #  uniform_1, gauss_1, gauss_2, no_noise
+        "reservation_price": 6.5,  # Placeholder variable
+        "reservation_price_factor": 2,
+        "markup": 1,  # Placeholder variable
+        "markup_factor": 1,
+        "concession": linear,  # linear, root_divided_by_2, cos_root_divided_by_2, no_shape
+        "noise": no_noise,  #  uniform_1, gauss_1, gauss_2, no_noise
         "Sticking factor": 0,  # Close to 0 means little sticking request, close to 1 means a lot of sticking requests
     },
     "TA flexrequest policy": sell_with_stochastic_prices,
@@ -233,12 +233,12 @@ input_data = {
     # sell_with_stochastic_prices,
     # Q_learning
     "TA flexrequest parameter": {
-        "Reservation price": 6,  # Placeholder variable
-        "Reservation-Deviation price": 0,  # Placeholder variable
-        "Markup factor": 1,
-        "Markup": 1,  # Placeholder variable
-        "Concession": no_shape,  # linear, root_divided_by_2, cos_root_divided_by_2, no_shape
-        "Noise": no_noise,  # #  uniform_1, gauss_1, gauss_2, no_noise
+        "reservation_price": 6,  # Placeholder variable
+        "reservation_deviation_price": 0,  # Placeholder variable
+        "markup_factor": 1,
+        "markup": 1,  # Placeholder variable
+        "concession": no_shape,  # linear, root_divided_by_2, cos_root_divided_by_2, no_shape
+        "noise": no_noise,  # #  uniform_1, gauss_1, gauss_2, no_noise
     },
     "Q parameter flexrequest": {
         "Gamma": 0.1,  # Reward discount factor

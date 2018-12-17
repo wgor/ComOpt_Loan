@@ -22,24 +22,24 @@ learning_input_data = {
 MA_negotiation_input_data = {
     "MA prognosis policy": buy_at_any_cost,
     "MA prognosis parameter": {
-        "Reservation price": 4,
-        "Markup": 1,
-        "Concession": linear,
-        "Noise": no_noise,
+        "reservation_price": 4,
+        "markup": 1,
+        "concession": linear,
+        "noise": no_noise,
     },
     "MA flexrequest policy": buy_at_any_cost,
     "MA flexrequest parameter": {
-        "Sticking factor": 0
+        "Sticking factor": 0,
     },
 }
 
 TA_negotiation_input_data = {
     "TA prognosis policy": sell_at_any_cost,
     "TA prognosis parameter": {
-        "Reservation price": 2,
-        "Markup": 1,
-        "Concession": linear,
-        "Noise": no_noise,
+        "reservation_price": 2,
+        "markup": 1,
+        "concession": linear,
+        "noise": no_noise,
     },
     "TA flexrequest policy": sell_at_any_cost,
     "TA flexrequest parameter": {},
