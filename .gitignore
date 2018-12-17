@@ -4,3 +4,7 @@
 .idea/
 build/
 results/
+.eggs/
+comopt.egg-info/
+*.pdf
+dist/
