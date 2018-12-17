@@ -47,7 +47,6 @@ class EMS(Agent):
                     self.environment.resolution,
                 ),
                 deviation_cost_curve=DeviationCostCurve(
-                    function_type="Linear",
                     gradient=ems_prices,
                     flow_unit_multiplier=self.environment.flow_unit_multiplier,
                 ),

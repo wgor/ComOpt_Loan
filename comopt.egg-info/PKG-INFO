@@ -1,0 +1,19 @@
+Metadata-Version: 1.1
+Name: comopt
+Version: 0.1
+Summary: Commitment Optimisation package.
+Home-page: UNKNOWN
+Author: UNKNOWN
+Author-email: UNKNOWN
+License: UNKNOWN
+Description: The Commitment Optimisation package for energy loans demonstrates interactions between different stakeholders trading energy flexibility as part of a smart energy system.
+        The package supports multi-agent simulations in which each stakeholder is represented as an independent decision-maker (agent) with limited information.
+        A simulation is executed as a Markov Decision Process from the perspective of one of the agents: the Aggregator.
+        
+Keywords: smart grid,renewables,balancing,energy loans
+Platform: UNKNOWN
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Development Status :: 3 - Alpha
+Classifier: License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)
+Classifier: Operating System :: OS Independent

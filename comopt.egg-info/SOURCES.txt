@@ -1,0 +1,10 @@
+README.md
+setup.py
+comopt/__init__.py
+comopt/run_manually.py
+comopt/utils.py
+comopt.egg-info/PKG-INFO
+comopt.egg-info/SOURCES.txt
+comopt.egg-info/dependency_links.txt
+comopt.egg-info/requires.txt
+comopt.egg-info/top_level.txt

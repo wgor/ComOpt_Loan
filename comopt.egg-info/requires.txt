@@ -1,0 +1,6 @@
+pandas
+numpy>=1.15.4
+pyomo
+cplex
+enlopy
+matplotlib==2.2.2
