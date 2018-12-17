@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from time import time
 
 from pandas import DataFrame, Series
-from comopt.model.utils import create_negotiation_log, initialize_index
+from comopt.model.utils import initialize_index
 from comopt.model.market_agent import MarketAgent
 from comopt.model.plan_board import PlanBoard
 from comopt.model.trading_agent import TradingAgent
@@ -95,62 +95,10 @@ class Environment:
             flexrequest_learning_parameter=input_data["Q parameter flexrequest"],
         )
         # Set up plan board
-        self.plan_board = PlanBoard(start=start, end=end, resolution=resolution)
+        self.plan_board = PlanBoard(environment=self, prognosis_rounds=input_data["Prognosis rounds"], flex_rounds=input_data["Flexrequest rounds"])
         # Create message log for each time period
         self.plan_board.create_message_logs(
             start=start, end=end, resolution=resolution, environment=self
-        )
-
-        # Set up prognosis negotiation log 1
-        self.plan_board.prognosis_negotiation_log_1 = create_negotiation_log(
-            start=self.start,
-            end=self.end
-            - self.resolution
-            - max(
-                self.market_agent.flex_trade_horizon,
-                self.trading_agent.prognosis_horizon,
-            ),
-            resolution=self.resolution,
-            rounds_total=input_data["Prognosis rounds"],
-        )
-
-        # Set up prognosis negotiation log 2
-        self.plan_board.prognosis_negotiation_log_2 = create_negotiation_log(
-            start=self.start,
-            end=self.end
-            - self.resolution
-            - max(
-                self.market_agent.flex_trade_horizon,
-                self.trading_agent.prognosis_horizon,
-            ),
-            resolution=self.resolution,
-            rounds_total=input_data["Prognosis rounds"],
-        )
-
-        # Set up flexrequest negotiation log 1
-        self.plan_board.flexrequest_negotiation_log_1 = create_negotiation_log(
-            start=self.start,
-            end=self.end
-            - self.resolution
-            - max(
-                self.market_agent.flex_trade_horizon,
-                self.trading_agent.prognosis_horizon,
-            ),
-            resolution=self.resolution,
-            rounds_total=input_data["Flexrequest rounds"],
-        )
-
-        # Set up flexrequest negotiation log 2
-        self.plan_board.flexrequest_negotiation_log_2 = create_negotiation_log(
-            start=self.start,
-            end=self.end
-            - self.resolution
-            - max(
-                self.market_agent.flex_trade_horizon,
-                self.trading_agent.prognosis_horizon,
-            ),
-            resolution=self.resolution,
-            rounds_total=input_data["Flexrequest rounds"],
         )
 
     def run_model(self):

@@ -2,18 +2,61 @@ from typing import List
 from datetime import datetime, timedelta
 
 from comopt.data_structures.message_types import Request
-from comopt.model.utils import initialize_df
+from comopt.model.utils import create_negotiation_log, initialize_df
 
 
 class PlanBoard:
     """A plan board hands out message identifiers and is used to store all messages."""
 
-    def __init__(self, start: datetime, end: datetime, resolution: timedelta):
+    def __init__(self, environment, prognosis_rounds: int, flex_rounds: int):
         self.message_id = 1
-        self.prognosis_negotiation_log_1 = None
-        self.prognosis_negotiation_log_2 = None
-        self.flexrequest_negotiation_log_1 = None
-        self.flexrequest_negotiation_log_2 = None
+
+        self.prognosis_negotiation_log_1 = create_negotiation_log(
+            start=environment.start,
+            end=environment.end
+                - environment.resolution
+                - max(
+                environment.market_agent.flex_trade_horizon,
+                environment.trading_agent.prognosis_horizon,
+            ),
+            resolution=environment.resolution,
+            rounds_total=prognosis_rounds,
+        )
+        self.prognosis_negotiation_log_2 = create_negotiation_log(
+            start=environment.start,
+            end=environment.end
+                - environment.resolution
+                - max(
+                environment.market_agent.flex_trade_horizon,
+                environment.trading_agent.prognosis_horizon,
+            ),
+            resolution=environment.resolution,
+            rounds_total=prognosis_rounds,
+        )
+        self.flexrequest_negotiation_log_1 = create_negotiation_log(
+            start=environment.start,
+            end=environment.end
+                - environment.resolution
+                - max(
+                environment.market_agent.flex_trade_horizon,
+                environment.trading_agent.prognosis_horizon,
+            ),
+            resolution=environment.resolution,
+            rounds_total=flex_rounds,
+        )
+
+        # Set up flexrequest negotiation log 2
+        self.flexrequest_negotiation_log_2 = create_negotiation_log(
+            start=environment.start,
+            end=environment.end
+                - environment.resolution
+                - max(
+                environment.market_agent.flex_trade_horizon,
+                environment.trading_agent.prognosis_horizon,
+            ),
+            resolution=environment.resolution,
+            rounds_total=flex_rounds,
+        )
 
     def get_message_id(self) -> int:
         id = self.message_id
