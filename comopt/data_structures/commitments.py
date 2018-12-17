@@ -13,23 +13,10 @@ class DeviationCostCurve:
     """
     A deviation cost curve represents the penalty (e.g. in EUR) for deviating from the committed flow (e.g. in MW) in a
     certain timeslot.
-    # Not implemented: the flow unit multiplier is not taken into account in the non-linear cases.
-        function_type:
-            Argument could be one of the following: "Zero", "Rectangle", "Linear", "Power"
-        excess_type:
-            Indicates either excess consumption or excess surplus.
-            Argument could be one of the following: "Supply" or "Demand"
-        origin:
-            Determines the root for a rectangle cost function.
-        epsilon:
-            Determines a null cost interval for a rectangle cost function.
-        cost_step:
-            Determines the value of a "price jump" for a rectangle cost function.
         gradient:
             Determines the gradient of the linear cost curve (e.g. in EUR/MWh) for a linear cost function.
             Can be a tuple to specify two different slopes for downwards and upwards deviations.
-        power:
-            Determines the power of a ... cost function.
+
         flow_unit_multiplier
             The flow unit multiplier specifies how to convert from a unit of flow into a unit of change in stock, given
             the resolution of the flow (the profile commitment).
@@ -40,20 +27,8 @@ class DeviationCostCurve:
     def __init__(
         self,
         flow_unit_multiplier: float,
-        function_type=None,
-        callback=None,
-        excess_type=None,
-        origin=0,
-        epsilon=None,
-        cost_step=None,
         gradient: Union[float, Tuple[float]] = None,
-        power=None,
     ):
-        self.function_type = function_type
-        self.excess = excess_type
-        self.origin = origin
-        self.epsilon = epsilon
-        self.cost_step = cost_step
 
         if isinstance(gradient, tuple):
             self.gradient_down = (
@@ -66,41 +41,18 @@ class DeviationCostCurve:
         else:
             self.gradient_down = gradient * flow_unit_multiplier
             self.gradient_up = gradient * flow_unit_multiplier
-        self.power = power
-        self.func = None
-        self.callback = callback
         return
-
+    
     def cost_decorator(func):
         def wrapper(self, quantity):
-            if self.function_type == "Block":
-                assert self.epsilon is not None, "No EPSILON VALUE - Please pass one!"
-                assert (
-                    self.cost_step is not None
-                ), "No COST_STEP VALUE - Please pass one!"
-                self.func = (
-                    lambda x: 0
-                    if self.origin - self.epsilon
-                    < quantity
-                    < self.origin + self.epsilon
-                    else self.cost_step
-                )
 
-            if self.function_type == "Linear":
-                assert self.gradient is not None, "No GRADIENT VALUE - Please pass one!"
-                self.func = (
-                    lambda quantity: quantity * self.gradient_up
-                    if quantity >= 0
-                    else -quantity * self.gradient_down
-                )
+            assert self.gradient is not None, "No GRADIENT VALUE - Please pass one!"
+            self.func = (
+                lambda quantity: quantity * self.gradient_up
+                if quantity >= 0
+                else -quantity * self.gradient_down
+            )
 
-            if self.function_type == "Power":
-                assert self.power is not None, "No POWER VALUE - Please pass one!"
-                self.func = lambda quantity: np.abs(quantity ** self.power)
-
-            if self.function_type == "Callback":
-                assert self.callback is not None
-                self.func = self.callback
             return func(self, quantity)
 
         return wrapper
