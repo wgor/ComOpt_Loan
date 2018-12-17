@@ -428,9 +428,7 @@ class TradingAgent(Agent):
 
         prognosis_decision_gate_1 = start_negotiation(
             datetime=self.environment.now,
-            rounds_total=self.environment.plan_board.prognosis_negotiation_log_1.index.get_level_values(
-                "Round"
-            ).max(),
+            rounds_total=self.environment.plan_board.prognosis_rounds,
             ta_policy=self.prognosis_policy,
             ta_parameter=self.prognosis_parameter,
             ma_policy=self.environment.market_agent.prognosis_policy,
@@ -589,9 +587,7 @@ class TradingAgent(Agent):
 
         flexrequest_decision_gate_1 = start_negotiation(
             datetime=self.environment.now,
-            rounds_total=self.environment.plan_board.flexrequest_negotiation_log_1.index.get_level_values(
-                "Round"
-            ).max(),
+            rounds_total=self.environment.plan_board.flex_rounds,
             ta_policy=self.flexrequest_policy,
             ta_parameter=self.flexrequest_parameter,
             ma_policy=self.environment.market_agent.flexrequest_policy,

@@ -10,6 +10,8 @@ class PlanBoard:
 
     def __init__(self, environment, prognosis_rounds: int, flex_rounds: int):
         self.message_id = 1
+        self.prognosis_rounds = prognosis_rounds
+        self.flex_rounds = flex_rounds
 
         max_agent_horizon = max(environment.market_agent.flex_trade_horizon, environment.trading_agent.prognosis_horizon)
         prognosis_negotiation_log = create_negotiation_log(
