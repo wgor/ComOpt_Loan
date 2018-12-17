@@ -8,3 +8,5 @@ results/
 comopt.egg-info/
 *.pdf
 dist/
+*.png
+*.pyomo.*
