@@ -11,52 +11,24 @@ class PlanBoard:
     def __init__(self, environment, prognosis_rounds: int, flex_rounds: int):
         self.message_id = 1
 
-        self.prognosis_negotiation_log_1 = create_negotiation_log(
+        max_agent_horizon = max(environment.market_agent.flex_trade_horizon, environment.trading_agent.prognosis_horizon)
+        prognosis_negotiation_log = create_negotiation_log(
             start=environment.start,
-            end=environment.end
-                - environment.resolution
-                - max(
-                environment.market_agent.flex_trade_horizon,
-                environment.trading_agent.prognosis_horizon,
-            ),
+            end=environment.end - environment.resolution - max_agent_horizon,
             resolution=environment.resolution,
             rounds_total=prognosis_rounds,
         )
-        self.prognosis_negotiation_log_2 = create_negotiation_log(
+        flex_negotiation_log = create_negotiation_log(
             start=environment.start,
-            end=environment.end
-                - environment.resolution
-                - max(
-                environment.market_agent.flex_trade_horizon,
-                environment.trading_agent.prognosis_horizon,
-            ),
-            resolution=environment.resolution,
-            rounds_total=prognosis_rounds,
-        )
-        self.flexrequest_negotiation_log_1 = create_negotiation_log(
-            start=environment.start,
-            end=environment.end
-                - environment.resolution
-                - max(
-                environment.market_agent.flex_trade_horizon,
-                environment.trading_agent.prognosis_horizon,
-            ),
+            end=environment.end - environment.resolution - max_agent_horizon,
             resolution=environment.resolution,
             rounds_total=flex_rounds,
         )
 
-        # Set up flexrequest negotiation log 2
-        self.flexrequest_negotiation_log_2 = create_negotiation_log(
-            start=environment.start,
-            end=environment.end
-                - environment.resolution
-                - max(
-                environment.market_agent.flex_trade_horizon,
-                environment.trading_agent.prognosis_horizon,
-            ),
-            resolution=environment.resolution,
-            rounds_total=flex_rounds,
-        )
+        self.prognosis_negotiation_log_1 = prognosis_negotiation_log
+        self.prognosis_negotiation_log_2 = prognosis_negotiation_log.copy()
+        self.flexrequest_negotiation_log_1 = flex_negotiation_log
+        self.flexrequest_negotiation_log_2 = flex_negotiation_log.copy()
 
     def get_message_id(self) -> int:
         id = self.message_id
