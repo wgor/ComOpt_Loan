@@ -46,7 +46,7 @@ class DeviationCostCurve:
     def cost_decorator(func):
         def wrapper(self, quantity):
 
-            assert self.gradient is not None, "No GRADIENT VALUE - Please pass one!"
+            assert self.gradient_up is not None and self.gradient_down is not None, "No GRADIENT VALUE - Please pass one!"
             self.func = (
                 lambda quantity: quantity * self.gradient_up
                 if quantity >= 0
@@ -82,9 +82,9 @@ class PiecewiseConstantProfileCommitment:
 
     def __init__(
         self,
-        label: Optional[str],
         constants: Union[List[float], ndarray, Series],
         deviation_cost_curve: Optional[DeviationCostCurve],
+        label: Optional[str] = "",
         revenue: float = None,
         start: datetime = None,
         end: datetime = None,

@@ -33,4 +33,4 @@ env = Environment(
 )
 
 # Run simulation model
-env.run_model()
+# env.run_model()
