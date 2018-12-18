@@ -55,6 +55,7 @@ class Offer:
     ):
         self.id = id
         self.offered_values = offered_values
+        self.deviation_cost_curve=deviation_cost_curve
         self.commitment = PiecewiseConstantProfileCommitment(
             label="Offered commitment",
             constants=offered_values,

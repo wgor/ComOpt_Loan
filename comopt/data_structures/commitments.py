@@ -138,6 +138,8 @@ class PiecewiseConstantProfileCommitment:
         end: datetime = None,
         resolution: timedelta = None,
         costs: float = None,
+        flow_unit_multiplier: float = None, 
+
     ):
         self.label = label
         self.deviation_cost_curve = deviation_cost_curve

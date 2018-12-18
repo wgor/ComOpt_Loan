@@ -15,7 +15,7 @@ from comopt.data_structures.usef_message_types import (
     FlexOrder,
 )
 from random import uniform
-from numpy import nan
+from numpy import nan, nan_to_num
 
 
 class MarketAgent(Agent):
@@ -42,18 +42,19 @@ class MarketAgent(Agent):
         """ Creates an instance of the Class MarketAgent. Inherits from the Class Agent """
         super().__init__(name, environment)
         columns = [
+            "Imbalance market price",
+            "Requested flexibility",
+            "Imbalance market costs",
             "Prognosis values",
             "Prognosis costs",
-            "Requested flexibility",
             "Commited flexibility",
-            "Received flexibility",
+            "Realised flexibility",
             "Deviated flexibility",
-            "Deviation prices",
             "Flexibility costs",
+            "Deviation prices",
             "Deviation revenues",
             "Remaining imbalances",
             "Remaining market costs",
-            "Imbalance market prices",
             "Opportunity costs",
         ]
         self.commitment_data = initialize_df(
@@ -63,7 +64,8 @@ class MarketAgent(Agent):
         self.commitment_data.loc[:, "Deviation prices"] = deviation_prices
         self.commitment_data.loc[:, "Requested flexibility"] = balancing_opportunities.loc[:, "Imbalance (in MW)"]
         self.commitment_data.loc[:, "Imbalance market price"] = balancing_opportunities.loc[:, "Price (in EUR/MWh)"]
-        self.commitment_data.loc[:, "Remaining market costs"] = imbalance_market_costs
+        self.commitment_data.loc[:, "Imbalance market costs"] = self.commitment_data.loc[:, "Requested flexibility"] \
+                                                                * self.commitment_data.loc[:, "Imbalance market price"]
         # self.commitment_data.loc[:, "Received flexibility"] = 0
 
         self.flex_trade_horizon = flex_trade_horizon
@@ -149,7 +151,7 @@ class MarketAgent(Agent):
 
             # prognosis.commitment.constants.loc[
             # flex_trade_window[0] : flex_trade_window[1] - self.environment.resolution] + remaining_commitment_opportunities
-            print("Prognosis power values \n" + str(prognosis.commitment.constants))
+            # print("Prognosis power values \n" + str(prognosis.commitment.constants))
 
             requested_values["requested_power"] = (
                 prognosis.commitment.constants.loc[
@@ -170,13 +172,7 @@ class MarketAgent(Agent):
             print("----------------MA: STICKING ---------------------\n")
             print("MA: Request sticking to prognosis values: {}\n".format(prognosis.commitment.constants))
 
-        # Assign MAs reservation price for flexibility negotiationabs
-        self.flexrequest_parameter["Reservation price"] = sum(
-            self.imbalance_market_costs.loc[
-            flex_trade_window[0] : flex_trade_window[1]
-            - self.environment.resolution
-            ]
-        )
+
 
         # Store requested flexibility in MA commitment data
         self.commitment_data.loc[flex_trade_window[0] : flex_trade_window[1] - self.environment.resolution, \
@@ -203,56 +199,43 @@ class MarketAgent(Agent):
 
         return prognosis
 
-    def get_flex_offer(self, flex_offer: FlexOffer) -> FlexOffer:
-        """Callback function to let the Market Agent get a FlexOffer."""
+    def get_flex_offer(self, flex_offer: FlexOffer, order: bool = False) -> FlexOffer:
+        """Callback function to let the Market Agent get a FlexOffer. Also the reservation price for the negotiation gets stored here."""
 
-        # if flex_offer is not None:
-        #     idx = flex_offer.commitment.constants.index
-        #     if (isnull(self.commitment_data.loc[self.environment.now, "Negotiated flexibility"]) == True):
-        #         for row, val in enumerate(flex_offer.commitment.constants.loc[flex_offer.start : (flex_offer.end - flex_offer.resolution)]):
-        #             self.commitment_data.loc[idx[row], "Negotiated flexibility"] = flex_offer.offered_flexibility.loc[idx[row]]
+        if order == False:
 
-        # print("MA: Negotiated Flex: {} \n".format(self.commitment_data["Negotiated flexibility"]))
+            start = flex_offer.offered_values.index[0]
+            end = flex_offer.offered_values.index[-1]
+
+            # Assign MAs reservation price for flexibility negotiationabs
+            self.flexrequest_parameter["Reservation price"] = sum(
+                nan_to_num(abs(flex_offer.offered_flexibility)) * self.commitment_data.loc[start : end, "Imbalance market price"]
+
+            )
 
         return flex_offer
 
     def post_flex_order(self, flex_offer: FlexOffer) -> Optional[FlexOrder]:
         """Callback function to let the Market Agent create a FlexOrder based on a FlexOffer and post it to the Trading
-        Agent."""
+        Agent. Also the commited and realised values gets stored at this point."""
 
         flex_order = FlexOrder(
             id=self.environment.plan_board.get_message_id(), flex_offer=flex_offer
         )
 
-        # Store commitments -> TODO: Factor out
-        if flex_order is not None:
-            idx = flex_order.ordered_power.index
-            for row, val in enumerate(
-                flex_offer.commitment.constants.loc[
-                    flex_order.start : flex_order.start,
-                ]
-            ):
-                if val != flex_offer.prognosis.commitment.constants[row]:
+        flexibility = flex_offer.offered_flexibility
 
-                    total_ems_flexibility = 0
-                    for ems in self.environment.ems_agents:
-                        total_ems_flexibility += ems.planned_flex_per_device.loc[
-                            idx[row], :
-                        ].sum(axis=0)
+        # Store commited flex for each step of actual horizon only if not nan.
+        for index, row in flexibility.iteritems():
 
-                    self.commitment_data.loc[
-                        idx[row], "Received flexibility"
-                    ] = total_ems_flexibility
-                    self.commitment_data.loc[idx[row], "Remaining imbalances"] = (
-                        self.balancing_opportunities.loc[idx[row], "Imbalance (in MW)"]
-                        - total_ems_flexibility
-                    )
+            if not isnull(flexibility.loc[index]):
 
-                    print("MA: Total EMS Flexibility: {}\n".format(total_ems_flexibility))
-                    print("MA: Remaining Imblances: {}\n".format(self.commitment_data.loc[idx[row], "Remaining imbalances"]))
+                self.commitment_data.loc[index, "Commited flexibility"] = flexibility.loc[index]
+                self.commitment_data.loc[flex_offer.start, "Realised flexibility"] = \
+                    self.commitment_data.loc[flex_offer.start, "Commited flexibility"]
 
-            # print("MA: Bought Flex: {} \n".format(self.commitment_data["Received flexibility"]))
-            self.commitment_data.loc[self.environment.now, "flex_costs"] = flex_order.costs
+        print("MA: Commited Flex: {} \n".format(self.commitment_data["Commited flexibility"]))
+        print("MA: Realised Flex: {} \n".format(self.commitment_data["Realised flexibility"]))
 
         return flex_order
 
@@ -270,10 +253,3 @@ class MarketAgent(Agent):
 
     def step(self):
         return
-
-        # Store commitments
-        # self.store_sold_power()
-        # self.commitment_data.loc[:, "Deviation prices"]_realised.append(
-        #     self.commitment_data.loc[:, "Deviation prices"][self.environment.now]
-        # )
-        # self.deviation_prices = self.deviation_prices * self.deviation_multiplicator

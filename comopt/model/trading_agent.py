@@ -1,7 +1,7 @@
 from typing import Callable, List, Optional, Tuple, Union
 from datetime import datetime, timedelta
 from numpy import linspace, nan
-from pandas import DataFrame, Series, concat
+from pandas import DataFrame, Series, concat, isnull
 from copy import deepcopy
 from collections import OrderedDict
 
@@ -22,7 +22,7 @@ from comopt.model.utils import (
     initialize_index,
     initialize_series,
     create_data_log,
-
+    sort_out_already_commited_values
 )
 from comopt.model.negotiation_utils import (
     start_negotiation,
@@ -83,8 +83,8 @@ class TradingAgent(Agent):
 
         columns_commitment_data = [
                   "Requested power", "Requested flexibility",
-                  "Agreed power", "Realised power", "Deviated power",
-                  "Agreed flexibility","Realised flexibility", "Deviated flexibility",
+                  "Commited power", "Realised power", "Deviated power",
+                  "Commited flexibility","Realised flexibility", "Deviated flexibility",
                   "Realised commitment costs", "Realised profits",
                   "Average purchase price", "Average feedin price",
                   "Deviation price up","Deviation price down",
@@ -100,35 +100,35 @@ class TradingAgent(Agent):
 
         self.commitment_data["Opportunity costs"] = 0
 
-        self.cleared_prognosis_negotiations = DataFrame(
-            index=initialize_index(
-                environment.start, environment.end, environment.resolution
-            ),
-            columns=["Cleared", "Clearing Price"],
-        )
-
-        self.cleared_flex_negotiations = DataFrame(
-            index=initialize_index(
-                environment.start, environment.end, environment.resolution
-            ),
-            columns=["Cleared", "Clearing Price"],
-        )
-
-        self.realised_power = initialize_series(
-            None, environment.start, environment.end, environment.resolution
-        )
-        self.sold_flex = initialize_series(
-            None, environment.start, environment.end, environment.resolution
-        )
-        self.flex_revenues = initialize_series(
-            None, environment.start, environment.end, environment.resolution
-        )
-        self.opportunity_costs = initialize_series(
-            0, environment.start, environment.end, environment.resolution
-        )
-        self.prognosis = initialize_series(
-            None, environment.start, environment.end, environment.resolution
-        )
+        # self.cleared_prognosis_negotiations = DataFrame(
+        #     index=initialize_index(
+        #         environment.start, environment.end, environment.resolution
+        #     ),
+        #     columns=["Cleared", "Clearing Price"],
+        # )
+        #
+        # self.cleared_flex_negotiations = DataFrame(
+        #     index=initialize_index(
+        #         environment.start, environment.end, environment.resolution
+        #     ),
+        #     columns=["Cleared", "Clearing Price"],
+        # )
+        #
+        # self.realised_power = initialize_series(
+        #     None, environment.start, environment.end, environment.resolution
+        # )
+        # self.sold_flex = initialize_series(
+        #     None, environment.start, environment.end, environment.resolution
+        # )
+        # self.flex_revenues = initialize_series(
+        #     None, environment.start, environment.end, environment.resolution
+        # )
+        # self.opportunity_costs = initialize_series(
+        #     0, environment.start, environment.end, environment.resolution
+        # )
+        # self.prognosis = initialize_series(
+        #     None, environment.start, environment.end, environment.resolution
+        # )
 
         self.prognosis_horizon = prognosis_horizon
         self.reprognosis_period = reprognosis_period
@@ -206,6 +206,7 @@ class TradingAgent(Agent):
     def create_device_message(
         self,
         ems: EMS,
+        description: str,
         targeted_power: Series,
         targeted_flexibility: Series,
         order: bool = False,
@@ -226,7 +227,8 @@ class TradingAgent(Agent):
 
         if order:
             return DeviceMessage(
-                description="Order",
+                type="Order",
+                description=description,
                 id=self.environment.plan_board.get_message_id(),
                 ordered_values=targeted_power,
                 targeted_flexibility=targeted_flexibility,
@@ -236,7 +238,8 @@ class TradingAgent(Agent):
             )
         else:
             return DeviceMessage(
-                description="Request",
+                type="Request",
+                description=description,
                 id=self.environment.plan_board.get_message_id(),
                 requested_values=targeted_power,
                 targeted_flexibility=targeted_flexibility,
@@ -303,12 +306,13 @@ class TradingAgent(Agent):
                 for ems in self.ems_agents:
 
                     # TODO: Get targeted_flex into device message and store values at EMS
-                    for idx in targeted_flexibility.index:
-                        ems.ems_data.loc[idx,"Requested flexibility"] = targeted_flexibility.loc[idx]
+                    for index, row in targeted_flexibility.iteritems():
+                        ems.ems_data.loc[index,"Requested flexibility"] = targeted_flexibility.loc[index]
 
                     # Determine DeviceMessage
                     device_message = self.create_device_message(
                         ems,
+                        description="Flex request",
                         targeted_power=targeted_power,
                         targeted_flexibility=targeted_flexibility,
                         deviation_cost_curve=flex_request.commitment.deviation_cost_curve,
@@ -322,6 +326,7 @@ class TradingAgent(Agent):
                 udi_events_local_memory.append(udi_events)
 
                 # Calculate aggregated power values and total costs (private and bid)
+
                 offered_values_aggregated = initialize_series(
                     data=[sum(x) for x in zip(*[udi_event.offered_power.values for udi_event in udi_events])],
                     start=udi_events[0].start,
@@ -329,19 +334,29 @@ class TradingAgent(Agent):
                     resolution=udi_events[0].resolution,
                 )
 
-                # Aggregate offered flexibility
-                offered_flexibility_aggregated = Series(data=0,index=udi_events[0].offered_flexibility.index)
-
-                for event in udi_events:
-                    offered_flexibility_aggregated += event.offered_flexibility
-
                 offered_flexibility_aggregated = initialize_series(
-                    data=offered_flexibility_aggregated,
+                    data=[sum(x) for x in zip(*[udi_event.offered_flexibility.values for udi_event in udi_events])],
                     start=udi_events[0].start,
                     end=udi_events[0].end,
                     resolution=udi_events[0].resolution,
                 )
 
+                offered_costs_aggregated = initialize_series(
+                    data=[sum(x) for x in zip(*[udi_event.costs.values for udi_event in udi_events])],
+                    start=udi_events[0].start,
+                    end=udi_events[0].end,
+                    resolution=udi_events[0].resolution,
+                )
+
+
+                # Check if already commited values are same as actual offer values. If true, don't offer them again.
+                offered_values_aggregated, offered_flexibility_aggregated, offered_costs_aggregated = \
+                    sort_out_already_commited_values(self,
+                                                     offered_values_aggregated,
+                                                     offered_flexibility_aggregated,
+                                                     offered_costs_aggregated)
+
+                #TODO: Check if dev costs and contract costs are still used
                 aggregated_udi_events.append(
                     UdiEvent(
                         id=-1,  # Not part of the plan board, as this is just a convenient object for the Trading Agent
@@ -349,7 +364,8 @@ class TradingAgent(Agent):
                         offered_flexibility=offered_flexibility_aggregated,
                         contract_costs=sum([udi_event.contract_costs for udi_event in udi_events]),
                         deviation_costs=sum([udi_event.deviation_costs for udi_event in udi_events]),
-                        costs=sum([udi_event.costs for udi_event in udi_events]),
+                        deviation_cost_curve=flex_request.commitment.deviation_cost_curve,
+                        costs=offered_costs_aggregated,
                     )
                 )
 
@@ -364,19 +380,19 @@ class TradingAgent(Agent):
                     udi_event_cnt += 1
 
         # Create placeholder variables for UDI-Event assignment
-        contract_costs_best_udi_event = best_udi_event.contract_costs
-        deviation_costs_best_udi_event = best_udi_event.deviation_costs
+        # contract_costs_best_udi_event = best_udi_event.contract_costs
+        # deviation_costs_best_udi_event = best_udi_event.deviation_costs
 
-        # Unpack opportunity costs
+        # Unpack opportunity costs for actual horizon
         opportunity_costs = self.commitment_data["Opportunity costs"].loc[
             flex_request.start : flex_request.end - flex_request.resolution
         ]
 
-        # NOTE: Use function call to create one or multiple offers after UDI-event aggregation
+        # NOTE: Use function call to create one or multiple specific offers after UDI-event aggregation
         # TODO: Move function create_adverse_and_plain_offers from comopt.utils to comopt.model.utils
         # -> There's some (recursive?) issue when loading the dependencies that i couldn't get solved (yet).
 
-        flex_offers = create_adverse_and_plain_offers(flex_request, best_udi_event,
+        flex_offers = create_adverse_and_plain_offers(self,flex_request, best_udi_event,
                                                       opportunity_costs, self.environment.plan_board)
 
         # Todo: suggest DeviationCostCurve
@@ -384,36 +400,30 @@ class TradingAgent(Agent):
 
         #------------- PRINTS ---------------#
         for offer in flex_offers:
-            print("\nTA: Costs {}: {}\n".format(offer.description, offer.costs))
-            print("TA: Power {}: {}\n".format(offer.description, offer.offered_values))
-            print("TA: Flexibility {}: {}\n".format(offer.description, offer.offered_flexibility))
+            print("\nTA: Costs/Power/Flex {}: {} {} {}\n".format(offer.description, offer.costs, offer.offered_values, offer.offered_flexibility))
+            # print("TA: Power {}: {}\n".format(offer.description, )
+            # print("TA: Flexibility {}: {}\n".format(offer.description, ))
+
+        # print("\nTA: UDI Event flex: {}\n".format(udi_events_local_memory[udi_event_cnt][0].offered_flexibility))
 
         return flex_offers, udi_events_local_memory[udi_event_cnt]
 
-    def store_commitment_data(self, decision_gate: dict, commitment: Union[Prognosis, FlexOrder], udi_events: List[UdiEvent]):
-        #
-        # if "CLEARED" in decision_gate["Status"]:
-        #
+    def store_commitment_data(self, commited_power, commited_flexibility):
 
-        if com.commitment.deviation_cost_curve is None:
-            gradient_down = 0
-            gradient_up = 0
-        else:
-            gradient_down = com.commitment.deviation_cost_curve.gradient_down
-            gradient_up = com.commitment.deviation_cost_curve.gradient_up
+        start = commited_power.index[0]
+        end = commited_power.index[-1]
 
-        for ems, udi_event in zip(self.ems_agents, udi_events):
-            ems_commitment = Commitment(
-                label=None,
-                constants=udi_event.commitment.constants,
-                costs=udi_event.costs,
-                deviation_cost_curve=DeviationCostCurve(
-                    gradient=(gradient_down, gradient_up),
-                    # keep 1 as value here
-                    flow_unit_multiplier=1,
-                ),
-            )
-            ems.commitments.append(ems_commitment)
+        for index, row in commited_power.iteritems():
+
+            if not isnull(commited_power.loc[index]):
+
+                self.commitment_data.loc[index,"Commited power"] = commited_power.loc[index]
+                self.commitment_data.loc[index,"Commited flexibility"] = commited_flexibility.loc[index]
+
+        print("TA: Commited power: {}\n".format(self.commitment_data.loc[start:end,"Commited power"]))
+        print("TA: Commited flexbility: {}\n".format(self.commitment_data.loc[start:end,"Commited flexibility"]))
+
+        return
 
     def step(self):
 
@@ -475,6 +485,7 @@ class TradingAgent(Agent):
             # Create empty device message
             device_message = self.create_device_message(
                 ems,
+                description="Prognosis data",
                 targeted_power=initialize_series(
                     None,
                     self.environment.now,
@@ -505,6 +516,8 @@ class TradingAgent(Agent):
         # Determine Prognosis
         prognosis, prognosis_udi_events = self.create_prognosis(udi_events)
 
+        print("TA: Prognosis event flexibility: {}".format(prognosis_udi_events[0].offered_flexibility))
+
         # Add Prognosis to planboard message log
         self.environment.plan_board.store_message(timeperiod=self.environment.now, message=prognosis, keys=["TA", "MA"])
 
@@ -519,6 +532,7 @@ class TradingAgent(Agent):
         # Determine FlexOffer (could be multiple offers)
         flex_offers, flex_offer_udi_events = self.create_flex_offer(flex_request)
 
+        print("TA: Flexrequest udi event flexibility: {}\n".format(flex_offer_udi_events[0].offered_flexibility))
 
         # Flex Decision Gate 1: TA and MA bargain over flex request price
         table_snapshots(
@@ -533,14 +547,12 @@ class TradingAgent(Agent):
 
         for enum, offer in enumerate(flex_offers):
 
-            self.flexrequest_parameter["Reservation price"] = offer.costs.loc[self.environment.now:self.environment.now + self.prognosis_horizon].sum()
-            print(self.flexrequest_parameter["Reservation price"])
+            self.flexrequest_parameter["Reservation price"] = offer.costs.sum(axis="index")
 
             # Submit flexoffer with adverse costs to MA
             self.market_agent.get_flex_offer(offer)
             self.environment.plan_board.store_message(
-                timeperiod=self.environment.now, message=offer, keys=["TA", "MA"]
-            )
+                timeperiod=self.environment.now, message=offer, keys=["TA", "MA"])
 
             print("TA: Market agent reservation price {}\n".format(self.environment.market_agent.flexrequest_parameter["Reservation price"]))
             print("TA: Trading agent reservation price {}\n".format(self.flexrequest_parameter["Reservation price"]))
@@ -555,9 +567,7 @@ class TradingAgent(Agent):
                                                                                                     - self.environment.resolution
                                                                                                     - self.environment.max_horizon,
                                                                                                 resolution=self.environment.resolution,
-                                                                                                rounds_total=self.flexrequest_rounds[enum],
-                                                                                            )
-
+                                                                                                rounds_total=self.flexrequest_rounds[enum])
             flexrequest_decision = start_negotiation(
                 description=offer.description,
                 negotiation_issue=offer,
@@ -574,32 +584,11 @@ class TradingAgent(Agent):
                 q_parameter=self.flexrequest_q_parameter,
             )
 
-            print("\nTA: Flex negotiation status: {}\n".format(flexrequest_decision["Status"]))
+            print("TA: Flex negotiation status: {}\n".format(flexrequest_decision["Status"]))
             print("TA: Flex negotiation clearing price: {}\n".format(flexrequest_decision["Clearing price"]))
-            print("----------------------REALISED VALUES UPDATE--------------------------       TIME: {} \n".format(self.environment.now))
+            print("----------------------DATA VALUE UPDATE--------------------------       TIME: {} \n".format(self.environment.now))
 
-            # In case a negotiation leads to an agreement, store offer values,commitment
-            # to the respecte data structures (for all agents)
-            if "CLEARED" in flexrequest_decision["Status"]:
-
-                # Assign the prognosed udi events to a device message, and pass it to the EMS for data update
-                for ems, event in zip(self.ems_agents, flex_offer_udi_events):
-                    
-                    ems.store_data(
-                        device_message= self.create_device_message(
-                                                                    ems,
-                                                                    targeted_power=event.offered_values,
-                                                                    targeted_flexibility=event.offered_flexibility,
-                                                                    deviation_cost_curve=flex_request.commitment.deviation_cost_curve,
-                                                                    costs=flexrequest_decision["Clearing price"],
-                                                                    order=True
-                                                                    ),
-                        commitments=event.commitment
-                    )
-
-                return
-
-            elif "NOT CLEARED" in flexrequest_decision["Status"]:
+            if "NOT CLEARED" in flexrequest_decision["Status"]:
 
                 # Check if another offer is available and continue with the next negotiation
                 if enum is not len(flex_offers)-1:
@@ -609,21 +598,84 @@ class TradingAgent(Agent):
 
                 # If there is no offer left to bargain over, save agents data and return
                 else:
-                    # Assign the prognosed udi events to a device message, and pass it to the EMS for data update
+
                     for ems, event in zip(self.ems_agents, prognosis_udi_events):
 
+                        print("TA: Store prognosis flex as commited: {}".format(event.offered_flexibility.loc[offer.start:offer.end - offer.resolution]))
+
+                        # Assign the prognosed udi event values to a device message, and pass it to the EMS for storing data and commitment
                         ems.store_data(
-                            device_message= self.create_device_message(
-                                                                        ems,
-                                                                        targeted_power=event.offered_values,
-                                                                        targeted_flexibility=event.offered_flexibility,
-                                                                        deviation_cost_curve=flex_request.commitment.deviation_cost_curve,
-                                                                        costs=flexrequest_decision["Clearing price"],
-                                                                        order=True
-                                                                        ),
-                            commitments=event.commitment
-                        )
-                return
+                            commitments=event.commitment,
+                            device_message= self.create_device_message(ems,
+                                                                       description="Failed Negotiation",
+                                                                       targeted_power=event.offered_values.loc[offer.start:offer.end - offer.resolution],
+                                                                       targeted_flexibility=event.offered_flexibility.loc[offer.start:offer.end - offer.resolution],
+                                                                       deviation_cost_curve=(0,0),
+                                                                       costs=event.costs,
+                                                                       order=True),
+                                        )
+                    return
+
+            # "CLEARED"
+            else:
+                # Assign the offered udi event values to a device message, and pass it to the EMS for storing data and commitment
+                for ems, event in zip(self.ems_agents, flex_offer_udi_events):
+
+                    print("TA: Cleared negotiaton over {}\n".format(offer.description))
+
+                    commited_power = deepcopy(event.offered_values)
+                    commited_flexibility = deepcopy(event.offered_flexibility)
+
+                    # This loop cuts already commited values from actual offer
+                    for index, row in offer.offered_values.iteritems():
+
+                        if isnull(offer.offered_flexibility.loc[index]):
+                            commited_flexibility.loc[index] = nan
+
+                        if isnull(offer.offered_values.loc[index]):
+                            commited_power.loc[index] = nan
+
+                    self.store_commitment_data(commited_power,commited_flexibility)
+
+                    ems.store_data(
+                        commitments=event.commitment,
+                        device_message= self.create_device_message(
+                                                                    ems,
+                                                                    description="Succeeded Negotiation",
+                                                                    targeted_power=commited_power,
+                                                                    targeted_flexibility=commited_flexibility,
+                                                                    deviation_cost_curve=flex_request.commitment.deviation_cost_curve,
+                                                                    costs=event.costs,
+                                                                    order=True
+                                                                    ),
+                    )
+
+                # Pull FlexOrder by pushing FlexOffer to MA
+                flex_order = self.market_agent.post_flex_order(
+                    self.market_agent.get_flex_offer(flex_offer=offer, order=True)
+                )
+
+                #Add Order to planboard message log
+                self.environment.plan_board.store_message(timeperiod=self.environment.now, message=flex_order, keys=["TA", "MA"])
+
+            return
+
+            # Update opportunity costs
+            # Todo: the following line assumes that the new commitments have already been stored in the EMS.commitments attribute (so the TA should do that in store_flex_order()!)
+            # previous_commitments_and_new_commitment = self.get_commitments(
+            #     (flex_order.start, flex_order.end)
+            # )
+            # self.opportunity_costs.loc[
+            #     flex_order.start : flex_order.end - flex_order.resolution
+            # ] = determine_opportunity_costs_model_a(
+            #     previous_commitments_and_new_commitment,
+            #     flex_order.start,
+            #     flex_order.end,
+            #     flex_order.resolution,
+            # )
+            # Todo: repeat until one of the stop conditions is met (you have an agreement, or max number of rounds (part of the protocol) is reached)
+
+
                     # ems.store_commitment_data(udi_event=event)
                 # ems.realised_power_per_device.loc[self.environment.now, :] = (
                 #     ems.planned_power_per_device.loc[self.environment.now, :]
@@ -644,79 +696,57 @@ class TradingAgent(Agent):
                 #     )
                 # )
                 # self.store_commitment_data(prognosis, prognosis_udi_events)
-            return
 
-        else:
-            flex_offer.costs = flexrequest_decision_gate_1["Clearing price"]
-            # TODO: Use negotiationlog file instead of instance variables
-            self.cleared_flex_negotiations.loc[self.environment.now, "Cleared"] = 1
-            self.cleared_flex_negotiations.loc[
-                self.environment.now, "Clearing Price"
-            ] = flexrequest_decision_gate_1["Clearing price"]
-
-            for ems in self.ems_agents:
-
-                ems.realised_power_per_device.loc[
-                    self.environment.now, :
-                ] = ems.planned_power_per_device.loc[self.environment.now, :]
-
-                ems.realised_flex_per_device.loc[
-                    self.environment.now, :
-                ] = ems.planned_flex_per_device.loc[self.environment.now, :]
-
-                ems.realised_costs_over_horizons[
-                    self.environment.now
-                ] = ems.planned_costs_over_horizons[self.environment.now]
-
-            idx = flex_offer.commitment.constants.index
-            for row, val in enumerate(
-                flex_offer.commitment.constants.loc[
-                    flex_offer.start : (flex_offer.end - flex_offer.resolution),
-                ]
-            ):
-                if val != flex_offer.prognosis.commitment.constants[row]:
-                    self.market_agent.commitments.loc[
-                        idx[row], "agreed_flex"
-                    ] = self.market_agent.commitments.loc[idx[row], "negotiated_flex"]
-            # self.market_agent.commitments.loc[self.environment.now:, "received_flex"] = self.market_agent.commitments.loc[self.environment.now:, "agreed_flex"]
-            print(
-                "TA: MA AGREED flex: {} \n \n".format(
-                    self.market_agent.commitments["agreed_flex"]
-                )
-            )
-            print(
-                "TA: MA RECEIVED FLEX: {} \n \n".format(
-                    self.market_agent.commitments.loc[
-                        self.environment.now, "received_flex"
-                    ]
-                )
-            )
-            print("TA: EMS REALISED FLEX: {}\n \n".format(ems.realised_flex_per_device))
-
-            # Pull FlexOrder by pushing FlexOffer to MA
-            flex_order = self.market_agent.post_flex_order(
-                self.market_agent.get_flex_offer(flex_offer)
-            )
-
-            # Update commitments (due to FlexOrder)
-            if flex_order is not None:
-                # TODO: Store values at EMS
-                self.store_commitment(flex_order, flex_offer_udi_events)
-
-            # Add Order to planboard message log
-            # self.environment.plan_board.store_message(timeperiod=self.environment.now, message=order, keys=["TA", "MA"])
-
-            # Update opportunity costs
-            # Todo: the following line assumes that the new commitments have already been stored in the EMS.commitments attribute (so the TA should do that in store_flex_order()!)
-            # previous_commitments_and_new_commitment = self.get_commitments(
-            #     (flex_order.start, flex_order.end)
-            # )
-            # self.opportunity_costs.loc[
-            #     flex_order.start : flex_order.end - flex_order.resolution
-            # ] = determine_opportunity_costs_model_a(
-            #     previous_commitments_and_new_commitment,
-            #     flex_order.start,
-            #     flex_order.end,
-            #     flex_order.resolution,
-            # )
-            # Todo: repeat until one of the stop conditions is met (you have an agreement, or max number of rounds (part of the protocol) is reached)
+        # else:
+        #     flex_offer.costs = flexrequest_decision_gate_1["Clearing price"]
+        #     # TODO: Use negotiationlog file instead of instance variables
+        #     self.cleared_flex_negotiations.loc[self.environment.now, "Cleared"] = 1
+        #     self.cleared_flex_negotiations.loc[
+        #         self.environment.now, "Clearing Price"
+        #     ] = flexrequest_decision_gate_1["Clearing price"]
+        #
+        #     for ems in self.ems_agents:
+        #
+        #         ems.realised_power_per_device.loc[
+        #             self.environment.now, :
+        #         ] = ems.planned_power_per_device.loc[self.environment.now, :]
+        #
+        #         ems.realised_flex_per_device.loc[
+        #             self.environment.now, :
+        #         ] = ems.planned_flex_per_device.loc[self.environment.now, :]
+        #
+        #         ems.realised_costs_over_horizons[
+        #             self.environment.now
+        #         ] = ems.planned_costs_over_horizons[self.environment.now]
+        #
+        #     idx = flex_offer.commitment.constants.index
+        #     for row, val in enumerate(
+        #         flex_offer.commitment.constants.loc[
+        #             flex_offer.start : (flex_offer.end - flex_offer.resolution),
+        #         ]
+        #     ):
+        #         if val != flex_offer.prognosis.commitment.constants[row]:
+        #             self.market_agent.commitments.loc[
+        #                 idx[row], "agreed_flex"
+        #             ] = self.market_agent.commitments.loc[idx[row], "negotiated_flex"]
+        #     # self.market_agent.commitments.loc[self.environment.now:, "received_flex"] = self.market_agent.commitments.loc[self.environment.now:, "agreed_flex"]
+        #     print(
+        #         "TA: MA AGREED flex: {} \n \n".format(
+        #             self.market_agent.commitments["agreed_flex"]
+        #         )
+        #     )
+        #     print(
+        #         "TA: MA RECEIVED FLEX: {} \n \n".format(
+        #             self.market_agent.commitments.loc[
+        #                 self.environment.now, "received_flex"
+        #             ]
+        #         )
+        #     )
+        #     print("TA: EMS REALISED FLEX: {}\n \n".format(ems.realised_flex_per_device))
+        #
+        #
+        #
+        #     # Update commitments (due to FlexOrder)
+        #     if flex_order is not None:
+        #         # TODO: Store values at EMS
+        #         self.store_commitment(flex_order, flex_offer_udi_events)

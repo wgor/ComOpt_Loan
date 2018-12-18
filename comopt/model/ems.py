@@ -16,6 +16,22 @@ from comopt.model.utils import initialize_df, initialize_series, initialize_inde
 
 from comopt.solver.ems_solver import device_scheduler
 from comopt.utils import Agent
+from comopt.model.utils import (
+    select_prognosis_or_planned_prefix,
+    store_prices_per_device,
+    store_contract_costs_per_device,
+    store_flexibility_per_device,
+
+    store_requested_power_per_datetime,
+    store_requested_flex_per_datetime,
+    store_power_per_datetime,
+    store_flexibility_per_datetime,
+    store_contract_costs_per_datetime,
+    store_deviation_costs_per_datetime,
+    store_flex_costs_per_datetime,
+    store_commitment_costs_per_datetime,
+    store_realised_and_commited_values
+)
 
 
 class EMS(Agent):
@@ -31,6 +47,7 @@ class EMS(Agent):
         devices: List[Tuple[str, DataFrame]],
         ems_constraints: DataFrame,
         ems_prices: Tuple[float],
+        flex_price: float,
     ):
         super().__init__(name, environment)
         self.devices = range(
@@ -42,6 +59,7 @@ class EMS(Agent):
         # computes the ems net demand from device constraints -> works only without battery and buffer (otherwise perform optimization over simulation runtime here)
         self.ems_constraints = ems_constraints
         self.device_messages_cnt = 1
+        self.flex_price = flex_price
         self.commitments = [
             Commitment(
                 label="Energy contract",
@@ -70,10 +88,10 @@ class EMS(Agent):
         # Abbreviations: "Prog":Prognosis, "Plan":Planned, "Real":Realised, "Com":Commited, "Dev":Deviation
         columns_device_data=[
                       "Prog power", "Plan power", "Real power", "Dev power",\
-                      "Prog flexibility", "Plan flexibility", "Real flexibility", "Dev flexibility", \
+                      "Prog flexibility", "Plan flexibility", "Real flexibility", \
                       "Prog contract costs", "Plan contract costs", "Real contract costs", \
-                      "Prog dev costs", "Plan dev costs", "Real dev costs", \
-                      "Prog total costs", "Plan total costs", "Real total costs", \
+                      # "Prog deviation costs", "Plan deviation costs", "Real deviation costs", \
+                      # "Prog total costs", "Plan total costs", "Real total costs", \
                       ]
 
         # Stores data per device and datetime
@@ -91,7 +109,7 @@ class EMS(Agent):
                   "Prog contract costs", "Plan contract costs", "Real contract costs", \
                   "Prog dev costs", "Plan dev costs", "Real dev costs", \
                   "Prog total costs", "Plan total costs", "Real total costs", \
-                  "Plan commitment costs", "Real commitment costs", \
+                  "Prog commitment costs", "Plan commitment costs", "Real commitment costs", \
                   "Purchase price", "Feedin price", "Dev price up", "Dev price down", \
                   ]
 
@@ -153,12 +171,13 @@ class EMS(Agent):
             ],
         )
 
+        print("------------AT SOLVER------------")
         data = self.store_data(device_message=device_message,
                                targeted_power_per_device=scheduled_power_per_device,
                                costs_per_commitment=costs_per_commitment,
                                commitments=applicable_commitments)
 
-        self.device_messages_cnt += 1
+        # self.device_messages_cnt += 1
         # Sum the planned power over all devices
         offered_power = initialize_series(
             data=array([power for power in scheduled_power_per_device]).sum(axis=0),
@@ -170,10 +189,11 @@ class EMS(Agent):
         return UdiEvent(
             id=self.environment.plan_board.get_message_id(),
             offered_values=offered_power,
-            offered_flexibility=data["Flexibility"],
-            contract_costs=data["Contract costs"],
-            deviation_costs=data["Deviation costs"],
-            costs=data["Commitment costs"]
+            offered_flexibility=data["EMS flexibility"],
+            contract_costs=data["EMS contract costs"],
+            deviation_costs=data["EMS deviation costs"],
+            deviation_cost_curve=device_message.commitment.deviation_cost_curve,
+            costs=data["EMS commitment costs"]
         )
 
     def get_device_message(
@@ -188,228 +208,184 @@ class EMS(Agent):
                    targeted_power_per_device: Union[None,Series] = None,
                    costs_per_commitment: Union[None,List] = None) -> Tuple:
 
+        ''' Data storing during post_udi_event function call:
 
+            Data input: Solver output after optimization (targeted_power_per_device,costs_per_commitment) gets used
+            Data to save: Prognosed values[Prognosis] and planned values [Flexrequest].
+            Device message type: "Request"
+
+            Data storing after flexrequest negotiations:
+
+            Data input: Device message values derived from offer and negotiation output gets used
+            Data to save: Realised and commited values.
+            Device message type: "Order"
+
+        '''
+        # Only needed for data storing during post_udi_event function cal
+        try:
+            start = targeted_power_per_device[0].index[0]
+            end = targeted_power_per_device[0].index[-1]
+
+        except:
+            pass
+
+        # 1) STORE PRGOGNOSIS AND PLANNED VALUES
+        # Assign a prefix to distinguish between Prognosis and Planned UDI-Event
+        if "Request" in device_message.type:
+
+            prefix = select_prognosis_or_planned_prefix(self,
+                                                        device_message=device_message)
+
+        # 2) STORE ORDER VALUES
         # Store commited data and commitments:
+        elif "Order" in device_message.type:
 
-        if "Order" in device_message.description:
+            store_realised_and_commited_values(self,
+                                               commitment=commitments,
+                                               device_message=device_message)
 
-            self.device_messages.loc[self.environment.now, "Order"] = device_message
 
-            # If device message description is "Order" and the device message targeted flex values are equal to the prognosed flex values,
-            # then the negotiation didn't get cleared. Hence use the prognosed values to assign the "commited" columns.
-            # Otherwise use the planned values.
-            for idx in device_message.targeted_flexibility.index:
+            # Store commitment only if a negotiation got cleared
+            if "Succeeded Negotiation" in device_message.description:
 
-                # Negotiation failed
-                if device_message.targeted_flexibility.loc[idx] == self.ems_data.loc[idx, "Prog flexibility"]:
-
-                    self.ems_data.loc[idx, "Com power"] = self.ems_data.loc[idx, "Prog power"]
-                    self.ems_data.loc[idx, "Com flexibility"] = self.ems_data.loc[idx, "Prog flexibility"]
-
-                    # if device_message.targeted_flexibility.loc[idx] is device_message.targeted_flexibility.index[-1]:
-                    #     self.store_commitments(commitment=None)
-
-                else:
-
-                # Negotiation succeeded
-                    self.ems_data.loc[idx, "Com power"] = self.ems_data.loc[idx, "Plan power"]
-                    self.ems_data.loc[idx, "Com power"] = self.ems_data.loc[idx, "Plan power"]
-
-                    # Store commitment
-                    # Commitments only get stored if a negotiation got cleared.
-                    if device_message.targeted_flexibility.loc[idx] is device_message.targeted_flexibility.index[-1]:
-                        self.store_commitments(commitment=Commitments)
-
+                self.commitments.append(Commitment(label=None,
+                                                   constants=device_message.commitment.constants,
+                                                   costs=device_message.costs,
+                                                   deviation_cost_curve=device_message.commitment.deviation_cost_curve,
+                                                   flow_unit_multiplier=1) # keep 1 as value here
+                                        )
             return
 
-        elif "Request" in device_message.description:
+        #-------------------- PRICE data ---------------------#
+        store_prices_per_device(self, commitments=commitments,)
 
-            if isnull(self.device_messages.loc[self.environment.now, "Prognosis"]) == True:
-
-                self.device_messages.loc[self.environment.now, "Prognosis"] = device_message
-                Prefix = "Prog "
-
-            else:
-                self.device_messages.loc[self.environment.now, "Request"] = device_message
-                Prefix = "Plan "
-
-        ## PRICE data
-        # Deviation prices
-        self.ems_data.loc[self.environment.now, "Deviation price up"] = commitments[-1].deviation_cost_curve.gradient_up
-        self.ems_data.loc[self.environment.now, "Deviation price down"] = commitments[-1].deviation_cost_curve.gradient_down
-
-        # Contract Prices: self.ems_prices could be adapted for dynamic price schemes (e.g. using a Series)
-        self.ems_data.loc[self.environment.now, "Feedin price"] = commitments[0].deviation_cost_curve.gradient_down
-        self.ems_data.loc[self.environment.now, "Purchase price"] = commitments[0].deviation_cost_curve.gradient_up
 
         #-------------------- DEVICE data --------------------#
         for enum, device in enumerate(self.device_types):
 
-            for idx in targeted_power_per_device[0].index:
+            for index, row in targeted_power_per_device[0].iteritems():
 
-                # POWER per device
-                self.device_data.loc[(idx, device), str(Prefix + "power")
-                ] = targeted_power_per_device[enum][idx]
-
-                # CONTRACT COSTS per device
-                if targeted_power_per_device[enum][idx] >= 0:
-                    self.device_data.loc[(idx, device), str(Prefix + "contract costs")
-                    ] = targeted_power_per_device[enum][idx] * self.ems_data.loc[self.environment.now, "Purchase price"]
-
-                else:
-                    self.device_data.loc[(idx, device), str(Prefix + "contract costs")
-                    ] = targeted_power_per_device[enum][idx] * self.ems_data.loc[self.environment.now, "Feedin price"]
+                # POWER per device: Derived from solver output
+                self.device_data.loc[(index, device), str(prefix + "power")] = targeted_power_per_device[enum][index]
 
                 # FLEXIBILITY per device
-                if self.device_data.loc[(idx, device), "Prog power"] > self.device_data.loc[(idx, device), "Plan power"]:
-                    diff = (self.device_data.loc[(idx, device), "Prog power"] - self.device_data.loc[(idx, device), "Plan power"])
+                flexibility_per_device = store_flexibility_per_device(
+                                                        self,
+                                                        prefix=prefix,
+                                                        enum=enum,
+                                                        index=index,
+                                                        targeted_power_per_device=targeted_power_per_device,
+                                                        commitments=commitments,
+                                                        device=device
+                                                    )
 
-                    # DEVIATION COSTS per device if deviation UP occurs
-                    # self.device_data.loc[(idx, device), str(Prefix + "deviation costs")
-                    # ] = diff * self.ems_data.loc[self.environment.now, "Deviation price up"]
+                # CONTRACT COSTS per device
+                contract_costs_per_device = store_contract_costs_per_device(
+                                                        self,
+                                                        prefix=prefix,
+                                                        enum=enum,
+                                                        index=index,
+                                                        targeted_power_per_device=targeted_power_per_device,
+                                                        device=device
+                                                    )
 
-                else:
-                    diff = (self.device_data.loc[(idx, device), "Plan power"] - self.device_data.loc[(idx, device), "Prog power"])
+        #---------------------- EMS data --------------------#
+        for index, row in targeted_power_per_device[0].iteritems():
 
-                    #DEVIATION COSTS per device if deviation DOWN occurs
-                    #TODO: Check if -1 holds for all constellations
-                    # self.device_data.loc[(idx, device), str(Prefix + "deviation costs")
-                    # ] = diff * self.ems_data.loc[self.environment.now, "Deviation price down"] *-1
+            # REQUESTED POWER: Derived from commitment
+            requested_power  = store_requested_power_per_datetime(
+                                                        self,
+                                                        index=index,
+                                                        prefix=prefix,
+                                                        commitments=commitments)
 
-                self.device_data.loc[(idx, device), str(Prefix + "flexibility")] = diff
+            # REQUESTED FLEX: Derived from commitment
+            requested_flexibility = store_requested_flex_per_datetime(
+                                                        self,
+                                                        index=index,
+                                                        prefix=prefix,
+                                                        device_message=device_message)
 
-                # TOTAL COSTS per device
-                if isnull(self.device_data.loc[(idx, device), str(Prefix + "dev costs")]) == True:
 
-                    self.device_data.loc[(idx, device), str(Prefix + "total costs")] = self.device_data.loc[(idx, device), str(Prefix + "contract costs")]
+            # POWER over all devices for current timestep
+            power_over_all_devices = store_power_per_datetime(
+                                                        self,
+                                                        index=index,
+                                                        prefix=prefix)
 
-                else:
-                    self.device_data.loc[(idx, device), str(Prefix + "total costs")] = self.device_data.loc[(idx, device), str(Prefix + "contract costs")] \
-                                                                                       + self.device_data.loc[(idx, device), str(Prefix + "dev costs")]
+            # FLEXBILITY over all devices for current timestep
+            flexibility_over_all_devices = store_flexibility_per_datetime(
+                                                        self,
+                                                        index=index,
+                                                        prefix=prefix)
 
-                #-------------------- EMS data --------------------#
-                # REQUESTED POWER
-                self.ems_data.loc[idx, "Req power"] = commitments[-1].constants.loc[idx]
+            # CONTRACT COSTS over all devices for current timestep
+            contract_costs_over_all_devices = store_contract_costs_per_datetime(
+                                                        self,
+                                                        index=index,
+                                                        prefix=prefix,
+                                                        power_over_all_devices=power_over_all_devices)
 
-                # REQUESTED FLEX
-                self.ems_data.loc[idx, "Req flexibility"] = device_message.targeted_flexibility.loc[idx]
+            # DEVIATION COSTS over all devices for one timestep
+            deviation_costs_over_all_devices = store_deviation_costs_per_datetime(
+                                                        self,
+                                                        index=index,
+                                                        prefix=prefix,
+                                                        power_over_all_devices=power_over_all_devices,
+                                                        requested_power=requested_power)
 
-                # POWER over all devices
-                self.ems_data.loc[idx, str(Prefix + "power")] = self.device_data.loc[IndexSlice[idx,:], str(Prefix + "power")].sum()
+            # FLEX COSTS: flexibility_over_all_devices * flex_price
+            flex_costs_over_all_devices = store_flex_costs_per_datetime(
+                                                        self,
+                                                        index=index,
+                                                        prefix=prefix,
+                                                        flexibility_over_all_devices=flexibility_over_all_devices)
 
-                # FLEXBILITY over all devices
-                self.ems_data.loc[idx, str(Prefix + "flexibility")] = self.device_data.loc[IndexSlice[idx,:], str(Prefix + "flexibility")].sum()
+            # COMMTMENT COSTS: flex_costs_over_all_devices +
+            commitment_costs_over_all_devices = store_commitment_costs_per_datetime(
+                                                                        self,
+                                                                        index=index,
+                                                                        prefix=prefix,
+                                                                        flex_costs_over_all_devices=flex_costs_over_all_devices,
+                                                                        deviation_costs_over_all_devices=deviation_costs_over_all_devices)
 
-                # CONTRACT COSTS over all devices
-                if self.ems_data.loc[idx, str(Prefix + "power")] >= 0:
-
-                    self.ems_data.loc[idx, str(Prefix + "contract costs")] = self.ems_data.loc[idx, str(Prefix + "power")] \
-                                                                             * self.ems_data.loc[self.environment.now, "Purchase price"]
-                else:
-                    self.ems_data.loc[idx, str(Prefix + "contract costs")] = self.ems_data.loc[idx, str(Prefix + "power")] \
-                                                                             * self.ems_data.loc[self.environment.now, "Feedin price"]
-
-                # DEVIATION COSTS over all devices
-                if self.ems_data.loc[idx, str(Prefix + "power")] > self.ems_data.loc[idx, "Req power"]:
-
-                    self.ems_data.loc[idx, str(Prefix + "dev costs")] = (self.ems_data.loc[idx, str(Prefix + "power")] \
-                                                                        - self.ems_data.loc[idx, "Req power"]) \
-                                                                        * self.ems_data.loc[self.environment.now, "Dev price up"]
-                else:
-                    self.ems_data.loc[idx, str(Prefix + "dev costs")] = (self.ems_data.loc[idx, "Req power"]
-                                                                        - self.ems_data.loc[idx, str(Prefix + "power")]) \
-                                                                        * self.ems_data.loc[self.environment.now, "Dev price down"]
-
-                # TOTAL COSTS over all devices
-                if isnull(self.ems_data.loc[idx, str(Prefix + "dev costs")]) == True:
-
-                    self.ems_data.loc[idx, str(Prefix + "total costs")] = self.ems_data.loc[idx, str(Prefix + "contract costs")]
-
-                else:
-                    self.ems_data.loc[idx, str(Prefix + "total costs")] = self.ems_data.loc[idx, str(Prefix + "contract costs")] \
-                                                                          + self.ems_data.loc[idx, str(Prefix + "dev costs")]
-
-                # COMMTMENT COSTS: Difference between prognosed and planned costs
-                if self.ems_data.loc[idx, "Prog total costs"] > self.ems_data.loc[idx, "Plan total costs"]:
-
-                    self.ems_data.loc[idx, str(Prefix + "commitment costs")] = self.ems_data.loc[idx, "Prog total costs"] - self.ems_data.loc[idx, "Plan total costs"]
-                else:
-                    self.ems_data.loc[idx, str(Prefix + "commitment costs")] = self.ems_data.loc[idx, "Plan total costs"] - self.ems_data.loc[idx, "Prog total costs"]
-
-                #-------------------- HORIZON data --------------------#
-                # Prognosed POWER horizon: Stores the prognosed power values over the actual horizon as a list per device.
-                self.horizon_data.loc[(self.environment.now, device), "Prog"] = targeted_power_per_device[enum].values
-
-        # Prognosed COSTS horizon: Values for each datetime of the actual horizon, stored as a list per device.
-        self.horizon_data.loc[(self.environment.now, "Total Costs"), "Prog"] = costs_per_commitment
-
-        # Prognosed FLEX horizon: Values for each datetime of the actual horizon, stored as a list per device.
-        self.horizon_data.loc[(self.environment.now, "Flexibility"), "Prog"] = self.device_data.loc[IndexSlice[self.environment.now, :], "Prog flexibility"].sum(axis=0)
+        #         #-------------------- HORIZON data --------------------#
+        #         # Prognosed POWER horizon: Stores the prognosed power values over the actual horizon as a list per device.
+        #         self.horizon_data.loc[(self.environment.now, device), "Prog"] = targeted_power_per_device[enum].values
+        #
+        # # Prognosed COSTS horizon: Values for each datetime of the actual horizon, stored as a list per device.
+        # self.horizon_data.loc[(self.environment.now, "Total Costs"), "Prog"] = costs_per_commitment
+        #
+        # # Prognosed FLEX horizon: Values for each datetime of the actual horizon, stored as a list per device.
+        # self.horizon_data.loc[(self.environment.now, "Flexibility"), "Prog"] = self.device_data.loc[IndexSlice[self.environment.now, :], "Prog flexibility"].sum(axis=0)
 
         #-------------------- PRINTS --------------------#
         for c in commitments:
             print("EMS: Applicable commitments constants.values: {}".format(c.constants.values))
+
+        # print("\nDEVICE: Contract costs: {}\n".format(self.device_data.loc[:, str(prefix + "contract costs")]))
+        # print("\nDEVICE: Flex: {}\n".format(self.device_data.loc[:, str(prefix + "flexibility")]))
 
         print("EMS: Targeted Flex: {}\n".format(list(device_message.targeted_flexibility.values)))
         print("EMS: Dev Curve Down: {}".format([c.deviation_cost_curve.gradient_down for c in commitments]))
         print("EMS: Dev Curve Up: {}".format([c.deviation_cost_curve.gradient_up for c in commitments]))
 
         print("\nEMS: Costs per commitment:{}".format(costs_per_commitment))
-        print("\nEMS: Scheduled power:\n{}".format(targeted_power_per_device))
 
-        print("\nDEVICE: " + Prefix + "data:\n{}".format(self.device_data.loc[:, [str(Prefix + "power"), str(Prefix + "flexibility"), \
-                                                                                  str(Prefix + "contract costs"), str(Prefix + "dev costs"), \
-                                                                                  str(Prefix + "total costs"),]]))
+        # print("\n Power over all: {}".format(self.ems_data.loc[start:end, "power"]))
+        # print("\n Flex over all: {}".format(self.ems_data.loc[start:end, "flexibility"]))
+        # print("\n CC over all: {}".format(self.ems_data.loc[start:end, "contract costs"]))
+        # print("\n Dev costs over all: {}".format(self.ems_data.loc[start:end, "dev costs"]))
+        # print("\n Tot costs over all: {}".format(self.ems_data.loc[start:end, "total costs"]))
+        # print("\n Com costs over all: {}".format(self.ems_data.loc[start:end, "commitment costs"]))
 
-        print("\nEMS: " + Prefix + "data:\n{}".format(self.ems_data.loc[:, ["Req power", str(Prefix + "power"), \
-                                                                            "Req flexibility", str(Prefix + "flexibility"), \
-                                                                            str(Prefix + "contract costs"), str(Prefix + "dev costs"), \
-                                                                            str(Prefix + "total costs"), str(Prefix + "commitment costs")]]))
+        return {"EMS power": self.ems_data.loc[start:end, str(prefix + "power")], \
+                "EMS flexibility": self.ems_data.loc[start:end, str(prefix +"flexibility")], \
+                "EMS contract costs": self.ems_data.loc[start:end, str(prefix +"contract costs")], \
+                "EMS deviation costs": self.ems_data.loc[start:end, str(prefix +"dev costs")], \
+                "EMS flex costs": self.ems_data.loc[start:end, str(prefix +"flex costs")], \
+                "EMS commitment costs": self.ems_data.loc[start:end, str(prefix +"commitment costs")]}
 
-        return {"Values": self.ems_data.loc[:, str(Prefix + "power")], \
-                "Flexibility": self.ems_data.loc[:, str(Prefix + "flexibility")], \
-                "Contract costs": self.ems_data.loc[:, str(Prefix + "contract costs")], \
-                "Deviation costs": self.ems_data.loc[:, str(Prefix + "dev costs")], \
-                "Total costs": self.ems_data.loc[:, str(Prefix + "total costs")], \
-                "Commitment costs": self.ems_data.loc[:, str(Prefix + "commitment costs")]}
-
-    def store_commitments(self,commitment: Commitment = None):
-
-        if commitment.deviation_cost_curve is None:
-
-            gradient_down = 0
-            gradient_up = 0
-
-        else:
-
-            gradient_down = commitment.deviation_cost_curve.gradient_down
-            gradient_up = commitment.deviation_cost_curve.gradient_up
-
-        self.commitments.append(Commitment(label=None,
-                                           constants=commitment.constants,
-                                           costs=commitment.costs,
-                                           deviation_cost_curve=DeviationCostCurve(
-                                           gradient=(gradient_down, gradient_up),
-                                            # keep 1 as value here
-                                           flow_unit_multiplier=1,
-                                                )
-                                            )
-                                )
-        # else:
-        #     self.commitments.append(Commitment(label=None,
-        #                                        constants=initialize_series(data=nan, start),
-        #                                        costs=nan,
-        #                                        deviation_cost_curve=DeviationCostCurve(
-        #                                        gradient=(0, 0),
-        #                                         # keep 1 as value here
-        #                                        flow_unit_multiplier=1,
-        #                                             )
-        #                                         )
-        #                             )
-
-        return
 
     def step(self):
         return
-        # Store commitments
-        # self.store_power()

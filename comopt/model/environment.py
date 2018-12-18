@@ -65,6 +65,7 @@ class Environment:
                     devices=input_data["Devices"][a],
                     ems_constraints=input_data["EMS constraints"][a],
                     ems_prices=input_data["EMS prices"][a],
+                    flex_price=input_data["EMS prices"][a][2]
                 )
             )
         self.ems_agents = ems_agents
@@ -117,11 +118,46 @@ class Environment:
 
         while self.now <= last_step_due_to_agent_horizons:
             # print("Simulation progress: %s" % self.now)
+            # if self.now.minute == 45:
+            #     break
             if self.now.hour == 0 and self.now.minute == 0:
                 self.logfile.write("Simulation progress: day %s" % self.now.day)
             self.step()
 
+        Prefix = "Prog "
+        self.logfile.write("\nDEVICE: Prognosis data:\n \n{}".format(self.ems_agents[0].device_data.loc[
+                                                                :, [str(Prefix + "power"), str(Prefix + "flexibility"), \
+                                                                                  str(Prefix + "contract costs"), \
+                                                                                  ]], '.2f'))
+
+        self.logfile.write("\nEMS: Prognosis data:\n \n{}".format(self.ems_agents[0].ems_data.loc[:, ["Req power", str(Prefix + "power"), \
+                                                                            "Req flexibility", str(Prefix + "flexibility"), \
+                                                                            str(Prefix + "contract costs"), str(Prefix + "dev costs"), \
+                                                                            str(Prefix + "flex costs"), str(Prefix + "commitment costs")]],'.2f'))
+        Prefix = "Plan "
+        self.logfile.write("\nDEVICE: Planned data:\n \n{}".format(self.ems_agents[0].device_data.loc[:, [str(Prefix + "power"), str(Prefix + "flexibility"), \
+                                                                                  str(Prefix + "contract costs"), \
+                                                                                  ]],'.2f'))
+
+        self.logfile.write("\nEMS: Planned data:\n \n{}".format(self.ems_agents[0].ems_data.loc[:, ["Req power", str(Prefix + "power"), \
+                                                                    "Req flexibility", str(Prefix + "flexibility"), \
+                                                                    str(Prefix + "contract costs"), str(Prefix + "dev costs"), \
+                                                                    str(Prefix + "flex costs"), str(Prefix + "commitment costs")]],'.2f'))
+
+        Prefix = "Real "
+        self.logfile.write("\nDEVICE: Realised data:\n \n \n{}".format(self.ems_agents[0].device_data.loc[:, [str(Prefix + "power"), str(Prefix + "flexibility"), \
+                                                                          str(Prefix + "contract costs") \
+                                                                          ]],'.2f'))
+
+        self.logfile.write("\nEMS: Realised data:\n \n{}".format(self.ems_agents[0].ems_data.loc[:, ["Req power", str(Prefix + "power"), \
+                                                                    "Req flexibility", str(Prefix + "flexibility"), \
+                                                                    str(Prefix + "contract costs"), \
+                                                                    str(Prefix + "flex costs"), str(Prefix + "commitment costs")]],'.2f'))
+
+
         self.logfile.close()
+
+
 
     def step(self):
         """Proceed the simulation by one time step with the given resolution."""

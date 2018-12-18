@@ -66,7 +66,7 @@ from comopt.plotting.profile_plots import (
 
 import time
 from random import uniform, randint, gauss, seed
-
+from copy import deepcopy
 import matplotlib.pyplot as plt
 import pickle
 import numpy as np
@@ -76,20 +76,21 @@ from pandas import Series
 
 set_option("display.max_columns", 100)
 set_option("column_space", 5)
-set_option("display.max_colwidth", 100)
-set_option("display.width", 120)
+set_option("display.max_colwidth", 150)
+set_option("display.width", 320)
 set_option("display.large_repr", "truncate")
 # set_option("multi_sparse", True)
 set_option("date_dayfirst", True)
 set_option("display.precision", 2)
-set_option('expand_frame_repr', True)
+# set_option('expand_frame_repr', True)
+set_option('precision', 5)
 
 logfile = open('simulation_logfile.txt', 'w')
 
 # Set horizon
 start_time = time.time()
-start = datetime(year=2018, month=6, day=1, hour=12)
-end = datetime(year=2018, month=6, day=1, hour=14)
+start = datetime(year=2018, month=6, day=1, hour=0)
+end = datetime(year=2018, month=6, day=1, hour=2)
 resolution = timedelta(minutes=15)
 
 # Set EMS agents
@@ -104,7 +105,7 @@ pickled_profiles = pickle_profiles(start=start, end=end, resolution=resolution)
 imbalances_test_profile_1_day = pickled_profiles["imbalances_test_profile_1_day"]
 imbalance_prices_test_profile_1_day = pickled_profiles["imbalance_prices_test_profile_1_day"]
 
-imbalance_prices_test_profile_1_day=imbalances_test_profile_1_day
+imbalance_prices_test_profile_1_day=deepcopy(imbalances_test_profile_1_day)
 
 solar_test_profile_1_day = pickled_profiles["solar_test_profile_1_day"]
 solar_test_profile_1_day[:] = 7
@@ -124,15 +125,21 @@ deviation_multiplicator = 1
 
 imbalance_prices_test_profile_1_day[:] = 50
 imbalances_test_profile_1_day[:] = 2
-imbalances_test_profile_1_day[1] = 20
+imbalances_test_profile_1_day[1] = 5
+imbalances_test_profile_1_day[2] = 10
+imbalances_test_profile_1_day[3] = 15
 imbalances_test_profile_1_day
+imbalance_prices_test_profile_1_day
+deviation_prices = imbalance_prices_test_profile_1_day + 10
+# deviation_prices[1] = 0
+# imbalance_prices_test_profile_1_day
+# deviation_prices
 
-deviation_prices[:] = imbalance_prices_test_profile_1_day * 50
-deviation_prices
+imbalance_prices_test_profile_1_day
 # for e,idx in enumerate(imbalances_test_profile_1_day.index):
 #     if e % 4 == 0:
 #         imbalances_test_profile_1_day.loc[idx] = -2
-
+flex_price = 10
 # ------------OPTIONAL END-------------#
 input_data = {
     # Optimiziation Input Parameter:
@@ -195,7 +202,7 @@ input_data = {
         [],  # >>>>>> EMS 3 <<<<<#
     ],  # Devices is a list, where each item is a device (we haven't got a class for devices, so a device is just a tuple with a device type name and a constraints dataframe)
     # self.gradient_down = gradient[0] * flow_unit_multiplier
-    "EMS prices": [(feed_in_price, purchase_price)],
+    "EMS prices": [(feed_in_price, purchase_price, flex_price)],
     "MA Deviation Prices": deviation_prices,
     "MA Deviation Multiplicator": deviation_multiplicator,  # can be used to increase the deviation prices in each step
     "MA imbalance_market_costs": imbalance_market_costs,
@@ -317,7 +324,6 @@ analysis_window = (env.start + cut_head, env.end - env.resolution - cut_tail)
 
 # Analyse simulation results
 
-
 # %%
 plot_ma_data(env)
 # %%
@@ -325,6 +331,7 @@ plot_ems_data(env)
 # %%
 plot_ems_net_demand_data(env)
 # %%
+env.market_agent.commitment_data
 env.ems_agents[0].realised_power_per_device.plot()
 env.ems_agents[0].planned_power_per_device.plot()
 

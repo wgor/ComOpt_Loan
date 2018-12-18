@@ -1,5 +1,5 @@
+from typing import Union, Optional
 from pandas import Series, to_timedelta
-
 from comopt.data_structures.message_types import (
     Prognosis as GenericPrognosis,
     Offer,
@@ -7,6 +7,10 @@ from comopt.data_structures.message_types import (
     Request,
 )
 
+from comopt.data_structures.commitments import (
+    PiecewiseConstantProfileCommitment,
+    DeviationCostCurve,
+)
 
 class Prognosis(GenericPrognosis):
     """A Prognosis describes the expected power."""
@@ -92,15 +96,18 @@ class UdiEvent(Offer):
     #       There is maybe another way to store those values, using/overwriting mother class variables (e.g. costs to total_costs).
     def __init__(
         self,
+        deviation_cost_curve: DeviationCostCurve,
         contract_costs: float = None,
         deviation_costs: float = None,
         offered_flexibility: float = None,
+
         **kwargs,
     ):
         self.contract_costs = contract_costs
         self.deviation_costs = deviation_costs
         self.offered_flexibility = offered_flexibility
-        super().__init__(deviation_cost_curve=None, **kwargs)
+        self.deviation_cost_curve = deviation_cost_curve
+        super().__init__(deviation_cost_curve=deviation_cost_curve, **kwargs)
         self.offered_power = self.commitment.constants
 
 
@@ -109,7 +116,8 @@ class DeviceMessage(Request, Order):
     Can be a request or an order.
     """
 
-    def __init__(self, description: str, targeted_flexibility: Series, costs: float = None, order: bool = False, **kwargs):
+    def __init__(self, type: Union[Request, Order], description: str, targeted_flexibility: Series, costs: float = None, order: bool = False, **kwargs):
+        self.type = type
         self.description = description
         self.targeted_flexibility=targeted_flexibility
         if order:
