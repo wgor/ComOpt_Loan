@@ -17,7 +17,8 @@ def limited_battery_capacity_profile(
     df = completely_unconstrained_profile(start=start, end=end, resolution=resolution)
     df["derivative max"] = battery_power_capacity
     df["derivative min"] = -battery_power_capacity
-    df["min"] = soc_limits[0]
-    df["max"] = soc_limits[1]
-    df["equals"].iloc[0] = soc_start
+    df["soc min"] = soc_limits[0]
+    df["soc max"] = soc_limits[1]
+    # df["soc"]
+    # df["equals"].iloc[0] = soc_start
     return df

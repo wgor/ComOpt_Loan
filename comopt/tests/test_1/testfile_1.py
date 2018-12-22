@@ -13,7 +13,6 @@ from comopt.scenario.balancing_opportunities import (
 )
 
 from comopt.scenario.battery_constraints import limited_battery_capacity_profile
-from comopt.scenario.buffer_constraints import follow_generated_buffer_profile
 from comopt.scenario.profile_generator import pickle_profiles
 from comopt.scenario.ems_constraints import (
     limited_capacity_profile as grid_connection,
@@ -91,7 +90,7 @@ logfile = open('simulation_logfile.txt', 'w')
 # Set horizon
 start_time = time.time()
 start = datetime(year=2018, month=6, day=1, hour=0)
-end = datetime(year=2018, month=6, day=1, hour=2)
+end = datetime(year=2018, month=6, day=1, hour=23)
 resolution = timedelta(minutes=15)
 
 # Set EMS agents
@@ -102,37 +101,21 @@ for number in range(1, number_of_agents + 1):
     ems_names.append(ems_name)
 
 # --------------PICKLE PROFILES---------------#
-# Get pickled profiles
 pickled_profiles = pickle_profiles(start=start, end=end, resolution=resolution)
-
-# MA: Imbalances
 imbalances_test_profile_1_day = pickled_profiles["imbalances_test_profile_1_day"]
-
-# MA: Up/down regulation prices on outside markets
 imbalance_prices_test_profile_1_day = pickled_profiles["imbalance_prices_test_profile_1_day"]
+
 imbalance_prices_test_profile_1_day=deepcopy(imbalances_test_profile_1_day)
 
-# MA: Prices for deviating from commitments
-deviation_prices = pickled_profiles["deviation_prices"]
-
-# EMS: PV-Production
 solar_test_profile_1_day = pickled_profiles["solar_test_profile_1_day"]
 solar_test_profile_1_day[:] = 7
 
-# EMS: Unflexbible Load
 load_test_profile_1_day = pickled_profiles["load_test_profile_1_day"]
-
-# EMS: Load that can be switched per control signal
-flexible_load_profile = pickled_profiles["flexible_load_profile"]
-
-# EMS: Energy contract prices for receiving energy from the grid
+deviation_prices = pickled_profiles["deviation_prices"]
 purchase_price = pickled_profiles["purchase_price"]
-
-# EMS: Energy contract prices for feeding in energy to the grid
 feed_in_price = pickled_profiles["feed_in_price"]
-
 imbalance_market_costs = pickled_profiles["imbalance_market_costs"]
-
+flexible_load_profile = pickled_profiles["flexible_load_profile"]
 net_demand_without_flex = pickled_profiles["net_demand_without_flex"]
 net_demand_costs_without_flex = pickled_profiles["net_demand_costs_without_flex"]
 
@@ -143,47 +126,17 @@ deviation_multiplicator = 1
 imbalance_prices_test_profile_1_day[:] = 50
 imbalances_test_profile_1_day=round(imbalances_test_profile_1_day, 1)
 imbalances_test_profile_1_day = abs(imbalances_test_profile_1_day)
-imbalances_test_profile_1_day[:] = 10
-# imbalances_test_profile_1_day[2] = 10
-# imbalances_test_profile_1_day[3] = 15
-# imbalances_test_profile_1_day[4] = 20
+imbalances_test_profile_1_day[1] = 5
+imbalances_test_profile_1_day[2] = 10
+imbalances_test_profile_1_day[3] = 15
+imbalances_test_profile_1_day[4] = 20
 imbalances_test_profile_1_day
 imbalance_prices_test_profile_1_day
 deviation_prices = imbalance_prices_test_profile_1_day + 10
-
-pickle_off = open("comopt/pickles/buffer_2hours_2windows.pickle", "rb")
-buffer_2hours_2windows = pickle.load(pickle_off)
-buffer_2hours_2windows.iloc[-1, -2] = 10
-buffer_2hours_2windows.iloc[-1, -1] = 0
-buffer_2hours_2windows.iloc[3:5, -2:] = 0
-buffer_2hours_2windows
 # deviation_prices[1] = 0
 # imbalance_prices_test_profile_1_day
 # deviation_prices
 
-# df = follow_generated_buffer_profile(start=start, end=end, resolution=resolution,
-#                                 buffer_power_capacity=5,
-#                                 frequency=0.5,
-#                                 window_size=3,
-#                                 soc_limits=(5,20),
-#                                 soc_start=10
-# ),
-#
-# df
-# df = follow_generated_buffer_profile(start=start, end=end, resolution=resolution,
-#                                      buffer_power_capacity=10,
-#                                      fraction=0.25)
-#
-# df.loc[:]=nan
-# df
-
-# pickling_on = open("buffer_2hours_2windows.pickle","wb")
-# pickle.dump(df, pickling_on)
-# pickling_on.close()
-# df['height'] = df["derivative max"]
-# df['height'].loc[df["height"] > 0]
-
-# plt.bar(x=df.index, height=df['derivative max'], width=0.01)
 imbalance_prices_test_profile_1_day
 # for e,idx in enumerate(imbalances_test_profile_1_day.index):
 #     if e % 4 == 0:
@@ -218,46 +171,34 @@ input_data = {
         # Profilenames need to contain "consumption", "generation", "battery", "buffer" as keywords for the plotting function!
         [  # >>>>>> EMS 1 <<<<<#
             # 1) Load
-            # (
-            #     "Load",
-            #     dispatchable_load_profile_with_bounds(
-            #         start=start,
-            #         end=end,
-            #         resolution=resolution,
-            #         profile=flexible_load_profile,
-            #     ),
-            # ),
-            # # 2) Generation
-            # (
-            #     "Generator",
-            #     follow_generated_production_profile(
-            #         start=start,
-            #         end=end,
-            #         resolution=resolution,
-            #         max_capacity=10,
-            #         dispatch_factor=dispatch_factor_solar,
-            #         profile=solar_test_profile_1_day,
-            #     ),
-            # ),
+            (
+                "Load",
+                dispatchable_load_profile_with_bounds(
+                    start=start,
+                    end=end,
+                    resolution=resolution,
+                    profile=flexible_load_profile,
+                ),
+            ),
+            # 2) Generation
+            (
+                "Generator",
+                follow_generated_production_profile(
+                    start=start,
+                    end=end,
+                    resolution=resolution,
+                    max_capacity=10,
+                    dispatch_factor=dispatch_factor_solar,
+                    profile=solar_test_profile_1_day,
+                ),
+            ),
             # curtailable_integer_solar_profile(start=start, end=end, resolution=resolution)
             # 3) Battery
-            # (
-            #     "Battery",
-            #     limited_battery_capacity_profile(start=start, end=end, resolution=resolution,
-            #                                     battery_power_capacity=5, soc_limits=(5,20), soc_start=10
-            #     ),
-            # ),
+            # limited_battery_capacity_profile(start=start, end=end, resolution=resolution,
+            #                                 battery_power_capacity=5, soc_limits=(5,20), soc_start=10,)
             # 4) Buffer
-            (
-                "Buffer", buffer_2hours_2windows
-                # follow_generated_buffer_profile(start=start, end=end, resolution=resolution,
-                #                                 buffer_power_capacity=10,
-                #                                 fraction=0.25,
-                # ),
-            ),
-
         ],
-        [],  # >>>>>> EMS 2 <<<<<#y
+        [],  # >>>>>> EMS 2 <<<<<#
         [],  # >>>>>> EMS 3 <<<<<#
     ],  # Devices is a list, where each item is a device (we haven't got a class for devices, so a device is just a tuple with a device type name and a constraints dataframe)
     # self.gradient_down = gradient[0] * flow_unit_multiplier

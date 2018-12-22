@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 
 from pandas import DataFrame, Series
 from comopt.model.utils import initialize_index
-from comopt.model.negotiation_utils import create_negotiation_data_log
 from comopt.model.market_agent import MarketAgent
 from comopt.model.plan_board import PlanBoard
 from comopt.model.trading_agent import TradingAgent
@@ -36,23 +35,35 @@ class Environment:
         input_data: Dict[str, Union[DataFrame, Series, timedelta, bool, Callable]],
     ):
         """Create simulation environment."""
+
         self.name = name
+
+        # Set up logfile to save print-like statements and pandas output to an external file
         self.logfile = input_data["Logfile"]
-        # Set up time
+
+        # Set up time related parameter
         self.start = start
         self.end = end
         self.resolution = resolution
-        self.now = start
-        self.max_horizon = max(
-            input_data["TA horizon"], input_data["MA horizon"]
-        )
 
-        self.simulation_runtime_index = initialize_index(start, end, resolution)
+        # Indices of model simulation steps in datetime format
+        self.datetime_index = initialize_index(start, end, resolution)
+
+        # Store horizon with the greatest length as an integer value
+        self.max_horizon = max(input_data["TA horizon"], input_data["MA horizon"])
+
+        # Actual timestep in datetime format
+        self.now = start
+
+        # Actual timestep as integer (counting variable)
         self.step_now = 1
-        self.total_steps = (
-            end - start - self.max_horizon
-        ) / resolution
+
+        # Total number of model simulation timeperiods as an integer
+        self.total_steps = (end - start - self.max_horizon) / resolution
+
+        # Used for downsampling hourly values within device scheduler
         self.flow_unit_multiplier = input_data["Flow unit multiplier"]
+
         # self.commitment_snapshots = commitment_snapshots(start=start, end=end, ta_horizon=input_data["TA horizon"], ma_horizon=input_data["MA horizon"])
 
         # Set up agents
@@ -69,40 +80,40 @@ class Environment:
                 )
             )
         self.ems_agents = ems_agents
+
         self.market_agent = MarketAgent(
             name="Market agent",
             environment=self,
             flex_trade_horizon=input_data["MA horizon"],
             balancing_opportunities=input_data["Balancing opportunities"],
-            deviation_prices=input_data["MA Deviation Prices"],
-            prognosis_policy=input_data["MA prognosis policy"],
+            # deviation_prices=input_data["MA flexrequest parameter"]["Deviation prices"],
             prognosis_parameter=input_data["MA prognosis parameter"],
-            flexrequest_policy=input_data["MA flexrequest policy"],
             flexrequest_parameter=input_data["MA flexrequest parameter"],
-            sticking_factor=input_data["MA flexrequest parameter"]["Sticking factor"],
-            deviation_multiplicator=input_data["MA Deviation Multiplicator"],
-            imbalance_market_costs=input_data["MA imbalance_market_costs"],
         )
+
         self.trading_agent = TradingAgent(
             name="Trading agent",
             environment=self,
             market_agent=self.market_agent,
             ems_agents=self.ems_agents,
-            prognosis_horizon=input_data["TA horizon"],
+            flex_trade_horizon=input_data["TA horizon"],
             reprognosis_period=timedelta(hours=6),
             central_optimization=input_data["Central optimization"],
-            prognosis_policy=input_data["TA prognosis policy"],
-            prognosis_rounds=input_data["Prognosis rounds"],
+            # prognosis_policy=input_data["TA prognosis policy"],
+            # prognosis_rounds=input_data["Prognosis rounds"],
             prognosis_parameter=input_data["TA prognosis parameter"],
-            prognosis_learning_parameter=input_data["Q parameter prognosis"],
-            flexrequest_policy=input_data["TA flexrequest policy"],
+            # prognosis_learning_parameter=input_data["Q parameter prognosis"],
+            # flexrequest_policy=input_data["TA flexrequest policy"],
             flexrequest_parameter=input_data["TA flexrequest parameter"],
-            flexrequest_learning_parameter=input_data["Q parameter flexrequest"],
-            flexrequest_rounds=input_data["Flexrequest rounds"],
+            # flexrequest_learning_parameter=input_data["Q parameter flexrequest"],
+            # flexrequest_rounds=input_data["Flexrequest rounds"],
         )
         # Set up planboard
-        self.plan_board = PlanBoard(start=start, end=end, resolution=resolution,
-                                   input_data=input_data, environment=self)
+        self.plan_board = PlanBoard(start=start,
+                                    end=end,
+                                    resolution=resolution,
+                                    input_data=input_data,
+                                    environment=self)
 
     def run_model(self):
         """Run the model until the end condition is reached."""

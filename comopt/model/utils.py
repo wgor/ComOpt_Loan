@@ -7,7 +7,6 @@ from pandas.tseries.frequencies import to_offset
 from numpy import ndarray, nan, nan_to_num
 
 
-
 def initialize_df(
     columns: List[str], start: datetime, end: datetime, resolution: timedelta
 ) -> DataFrame:
@@ -34,7 +33,7 @@ def initialize_index(
     return i
 
 
-def create_data_log(
+def create_multi_index_log(
     first_index: Union[List, Index],
     second_index: Union[List, Index],
     index_names: List,
@@ -56,19 +55,25 @@ def create_data_log(
 
 def sort_out_already_commited_values(self, offered_values_aggregated, offered_flexibility_aggregated, offered_costs_aggregated):
 
+    ''' If there's the same output in the offered power values than those values are not getting attached again'''
+
     for index, row in offered_values_aggregated.iteritems():
 
+        # Equal values: Actual round's power values are equal to already commited values from previous round(s)
         if offered_values_aggregated.loc[index] == self.commitment_data.loc[index, "Commited power"]:
 
             offered_values_aggregated.loc[index] = nan
             offered_flexibility_aggregated.loc[index] = nan
             offered_costs_aggregated.loc[index] = nan
 
+        # Greater values: Actual rounds power values are greater than already commited values from previous round(s).
+        # Update flex values accordingly, and keep actual rounds power values
         elif offered_values_aggregated.loc[index] > self.commitment_data.loc[index, "Commited power"]:
 
             offered_flexibility_aggregated.loc[index] = offered_flexibility_aggregated.loc[index] - self.commitment_data.loc[index, "Commited flexibility"]
 
-
+        # Lower values: Actual rounds power values are lower than already commited values from previous round(s).
+        # Update flex values accordingly, and keep actual rounds power values
         elif offered_values_aggregated.loc[index] < self.commitment_data.loc[index, "Commited power"]:
 
             offered_flexibility_aggregated.loc[index] = self.commitment_data.loc[index, "Commited flexibility"] - offered_flexibility_aggregated.loc[index]
@@ -82,13 +87,13 @@ def select_prognosis_or_planned_prefix(
                                         self,
                                         device_message):
 
-    # Prognosisrequest
+    # Prognosisrequest selection
     if isnull(self.device_messages.loc[self.environment.now, "Prognosis"]) == True:
 
         self.device_messages.loc[self.environment.now, "Prognosis"] = device_message
         prefix = "Prog "
 
-    # Flexrequest
+    # Flexrequest selection
     else:
         self.device_messages.loc[self.environment.now, "Request"] = device_message
         prefix = "Plan "
@@ -101,12 +106,12 @@ def select_prognosis_or_planned_prefix(
 def store_prices_per_device(self,
                             commitments):
 
-    # Deviation prices changes with every step according to imbalance market price of MA
+    # Deviation prices are different at every step related to imbalance market prices of MA
     self.ems_data.loc[self.environment.now, "Deviation price up"] = commitments[-1].deviation_cost_curve.gradient_up
     self.ems_data.loc[self.environment.now, "Deviation price down"] = commitments[-1].deviation_cost_curve.gradient_down
 
     # Contract Prices:
-    # NOTE: self.ems_prices could be adapted for dynamic price schemes (e.g. Day/Nite-tariff)
+    # NOTE: self.ems_prices could be adapted (e.g. indexed Series-valeus) for dynamic price schemes (e.g. Day/Nite-tariff)
     self.ems_data.loc[self.environment.now, "Feedin price"] = commitments[0].deviation_cost_curve.gradient_down
     self.ems_data.loc[self.environment.now, "Purchase price"] = commitments[0].deviation_cost_curve.gradient_up
 
@@ -144,7 +149,6 @@ def store_flexibility_per_device(self,
                                  targeted_power_per_device,
                                  commitments) -> Series:
 
-    # print("EMS: Store Flex per device: {}\n".format(commitments[-1].constants.loc[index]))
     flexibility_per_device = nan
     if "Prog" in prefix:
 
@@ -205,6 +209,7 @@ def store_requested_power_per_datetime(self,
 
     requested_power  = commitments[-1].constants.loc[index]
 
+    # Only store non-nan values
     if not isnull(requested_power):
 
         self.ems_data.loc[index, "Req power"] = requested_power
@@ -220,9 +225,10 @@ def store_requested_flex_per_datetime(self,
 
     requested_flexibility = device_message.targeted_flexibility.loc[index]
 
+    # Only store non-nan values
     if not isnull(requested_flexibility):
 
-        # All nans get overwritten with 0 at first datetime
+        # All nans gets overwritten with zero at first datetime
         if isnull(self.ems_data.loc[index, "Req flexibility"]):
 
             self.ems_data.loc[index, "Req flexibility"] = requested_flexibility

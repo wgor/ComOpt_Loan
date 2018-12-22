@@ -1,9 +1,8 @@
 from typing import Callable, List, Optional, Tuple, Union
 from datetime import datetime, timedelta
-from numpy import linspace, nan
+from numpy import nan
 from pandas import DataFrame, Series, concat, isnull
 from copy import deepcopy
-from collections import OrderedDict
 
 from comopt.data_structures.commitments import (
     DeviationCostCurve,
@@ -16,18 +15,18 @@ from comopt.model.flex_split_methods import (
 )
 from comopt.model.market_agent import MarketAgent
 from comopt.model.opportunity_costs import determine_opportunity_costs_model_a
-from comopt.model.negotiation_utils import create_negotiation_data_log
 from comopt.model.utils import (
     initialize_df,
     initialize_index,
     initialize_series,
-    create_data_log,
+    create_multi_index_log,
     sort_out_already_commited_values
 )
 from comopt.model.negotiation_utils import (
     start_negotiation,
-    table_snapshots
+    update_adaptive_strategy_data
 )
+
 #TODO: Add create_adverse_and_plain_offers -> didnt find the bug, "Error: Can't import initialize_series"
 from comopt.utils import Agent, create_adverse_and_plain_offers
 from comopt.data_structures.utils import select_applicable
@@ -53,16 +52,16 @@ class TradingAgent(Agent):
         market_agent: MarketAgent,
         ems_agents: List[EMS],
         environment,
-        prognosis_horizon: timedelta,
+        flex_trade_horizon: timedelta,
         reprognosis_period: timedelta,
-        prognosis_policy: Callable,
+        # prognosis_policy: Callable,
         prognosis_parameter: dict,
-        prognosis_rounds: int,
-        prognosis_learning_parameter: dict,
-        flexrequest_policy: Callable,
+        # prognosis_rounds: int,
+        # prognosis_learning_parameter: dict,
+        # flexrequest_policy: Callable,
         flexrequest_parameter: dict,
-        flexrequest_rounds: int,
-        flexrequest_learning_parameter: dict,
+        # flexrequest_rounds: int,
+        # flexrequest_learning_parameter: dict,
         central_optimization: bool = False,
     ):
         """ Creates an instance of the Class TradingAgent. Inherits from the Class Agent."""
@@ -130,70 +129,70 @@ class TradingAgent(Agent):
         #     None, environment.start, environment.end, environment.resolution
         # )
 
-        self.prognosis_horizon = prognosis_horizon
+        self.flex_trade_horizon = flex_trade_horizon
         self.reprognosis_period = reprognosis_period
         self.central_optimization = central_optimization
-        self.flexrequest_rounds = flexrequest_rounds
+        # self.flexrequest_parameter["Negotiation rounds"] = flexrequest_rounds
 
 
         # Prognosis negotiation inputs
-        self.prognosis_policy = prognosis_policy
+        # self.prognosis_policy = prognosis_policy
         self.prognosis_parameter = prognosis_parameter
-        self.prognosis_q_parameter = prognosis_learning_parameter
-        self.prognosis_q_table_df_1 = DataFrame(
-            data=0,
-            index=range(1, prognosis_rounds + 1),
-            columns=self.prognosis_q_parameter["Action function"](
-                action=None, markup=None, show_actions=True
-            ).keys(),
-        )
-        self.prognosis_q_table_df_2 = DataFrame(
-            data=0,
-            index=range(1, prognosis_rounds + 1),
-            columns=self.prognosis_q_parameter["Action function"](
-                action=None, markup=None, show_actions=True
-            ).keys(),
-        )
-        self.prognosis_q_table_df_1.index.name = "Rounds"
-        self.prognosis_q_table_df_2.index.name = "Rounds"
-        self.prognosis_action_table_df_1 = deepcopy(self.prognosis_q_table_df_1)
-        self.prognosis_action_table_df_2 = deepcopy(self.prognosis_q_table_df_1)
-
-        # Flexrequest negotiation inputs
-        self.flexrequest_policy = flexrequest_policy
+        # self.prognosis_q_parameter = prognosis_learning_parameter
+        # self.prognosis_q_table_df_1 = DataFrame(
+        #     data=0,
+        #     index=range(1, prognosis_rounds + 1),
+        #     columns=self.prognosis_q_parameter["Action function"](
+        #         action=None, markup=None, show_actions=True
+        #     ).keys(),
+        # )
+        # self.prognosis_q_table_df_2 = DataFrame(
+        #     data=0,
+        #     index=range(1, prognosis_rounds + 1),
+        #     columns=self.prognosis_q_parameter["Action function"](
+        #         action=None, markup=None, show_actions=True
+        #     ).keys(),
+        # )
+        # self.prognosis_q_table_df_1.index.name = "Rounds"
+        # self.prognosis_q_table_df_2.index.name = "Rounds"
+        # self.prognosis_action_table_df_1 = deepcopy(self.prognosis_q_table_df_1)
+        # self.prognosis_action_table_df_2 = deepcopy(self.prognosis_q_table_df_1)
+        #
+        # # Flexrequest negotiation inputs
+        # self.flexrequest_policy = flexrequest_policy
         self.flexrequest_parameter = flexrequest_parameter
-        self.flexrequest_q_parameter = flexrequest_learning_parameter
-        self.flexrequest_q_table_df_1 = DataFrame(
-            data=0,
-            index=range(1, flexrequest_rounds[0] + 1),
-            columns=self.flexrequest_q_parameter["Action function"](
-                action=None, markup=None, show_actions=True
-            ).keys(),
-        )
-        self.flexrequest_q_table_df_2 = DataFrame(
-            data=0,
-            index=range(1, flexrequest_rounds[0] + 1),
-            columns=self.flexrequest_q_parameter["Action function"](
-                action=None, markup=None, show_actions=True
-            ).keys(),
-        )
-        self.flexrequest_q_table_df_1.index.name = "Rounds"
-        self.flexrequest_q_table_df_2.index.name = "Rounds"
-        self.flexrequest_action_table_df_1 = deepcopy(self.flexrequest_q_table_df_1)
-        self.flexrequest_action_table_df_2 = deepcopy(self.flexrequest_q_table_df_1)
-
-        # Storing snapshots for plots
-        self.store_table_steps = linspace(
-            1, self.environment.total_steps, num=8, dtype="int", endpoint=True
-        )
-        self.stored_q_tables_prognosis_1 = OrderedDict()
-        self.stored_q_tables_prognosis_2 = OrderedDict()
-        self.stored_q_tables_flexrequest_1 = OrderedDict()
-        self.stored_q_tables_flexrequest_2 = OrderedDict()
-        self.stored_action_tables_prognosis_1 = OrderedDict()
-        self.stored_action_tables_prognosis_2 = OrderedDict()
-        self.stored_action_tables_flexrequest_1 = OrderedDict()
-        self.stored_action_tables_flexrequest_2 = OrderedDict()
+        # self.flexrequest_q_parameter = flexrequest_learning_parameter
+        # self.flexrequest_q_table_df_1 = DataFrame(
+        #     data=0,
+        #     index=range(1, flexrequest_rounds[0] + 1),
+        #     columns=self.flexrequest_q_parameter["Action function"](
+        #         action=None, markup=None, show_actions=True
+        #     ).keys(),
+        # )
+        # self.flexrequest_q_table_df_2 = DataFrame(
+        #     data=0,
+        #     index=range(1, flexrequest_rounds[0] + 1),
+        #     columns=self.flexrequest_q_parameter["Action function"](
+        #         action=None, markup=None, show_actions=True
+        #     ).keys(),
+        # )
+        # self.flexrequest_q_table_df_1.index.name = "Rounds"
+        # self.flexrequest_q_table_df_2.index.name = "Rounds"
+        # self.flexrequest_action_table_df_1 = deepcopy(self.flexrequest_q_table_df_1)
+        # self.flexrequest_action_table_df_2 = deepcopy(self.flexrequest_q_table_df_1)
+        #
+        # # Storing snapshots for plots
+        # self.store_table_steps = linspace(
+        #     1, self.environment.total_steps, num=8, dtype="int", endpoint=True
+        # )
+        # self.stored_q_tables_prognosis_1 = OrderedDict()
+        # self.stored_q_tables_prognosis_2 = OrderedDict()
+        # self.stored_q_tables_flexrequest_1 = OrderedDict()
+        # self.stored_q_tables_flexrequest_2 = OrderedDict()
+        # self.stored_action_tables_prognosis_1 = OrderedDict()
+        # self.stored_action_tables_prognosis_2 = OrderedDict()
+        # self.stored_action_tables_flexrequest_1 = OrderedDict()
+        # self.stored_action_tables_flexrequest_2 = OrderedDict()
 
     def get_commitments(self, time_window: Tuple[datetime, datetime]):
         return [
@@ -218,7 +217,7 @@ class TradingAgent(Agent):
         determine the target schedule for the EMS."""
         i = initialize_index(
             start=self.environment.now,
-            end=self.environment.now + self.prognosis_horizon,
+            end=self.environment.now + self.flex_trade_horizon,
             resolution=self.environment.resolution,
         )
         targeted_power = targeted_power.reindex(i)
@@ -266,7 +265,7 @@ class TradingAgent(Agent):
             Prognosis(
                 id=self.environment.plan_board.get_message_id(),
                 start=self.environment.now,
-                end=self.environment.now + self.prognosis_horizon,
+                end=self.environment.now + self.flex_trade_horizon,
                 resolution=self.environment.resolution,
                 prognosed_values=prognosed_values,
             ),
@@ -348,7 +347,6 @@ class TradingAgent(Agent):
                     resolution=udi_events[0].resolution,
                 )
 
-
                 # Check if already commited values are same as actual offer values. If true, don't offer them again.
                 offered_values_aggregated, offered_flexibility_aggregated, offered_costs_aggregated = \
                     sort_out_already_commited_values(self,
@@ -378,10 +376,6 @@ class TradingAgent(Agent):
                     pass
                 if len(aggregated_udi_events) > 1:
                     udi_event_cnt += 1
-
-        # Create placeholder variables for UDI-Event assignment
-        # contract_costs_best_udi_event = best_udi_event.contract_costs
-        # deviation_costs_best_udi_event = best_udi_event.deviation_costs
 
         # Unpack opportunity costs for actual horizon
         opportunity_costs = self.commitment_data["Opportunity costs"].loc[
@@ -441,41 +435,32 @@ class TradingAgent(Agent):
         # Decision Gate 1: TA and MA bargain over prognosis price
 
         # Update parameters related to q-learning
-        self.prognosis_q_parameter["Step now"] = self.environment.step_now
+        # self.prognosis_q_parameter["Step now"] = self.environment.step_now
         print("---------------------PROGNOSIS NEGOTIATION--------------------------")
 
-        table_snapshots(
-            snapshots=self.store_table_steps,
-            step_now=self.environment.step_now,
-            timeperiod_now=self.environment.now,
-            stored_q_tables=self.stored_q_tables_prognosis_1,
-            stored_action_tables=self.stored_action_tables_prognosis_1,
-            q_table_now=self.prognosis_q_table_df_1,
-            action_table_now=self.prognosis_action_table_df_1,
-        )
+        update_adaptive_strategy_data(description="Prognosis",
+                                      ta_parameter=self.prognosis_parameter,
+                                      plan_board=self.environment.plan_board,
+                                      timeperiod_now=self.environment.now,
+                                      step_now=self.environment.step_now,
+                                      snapshot=True)
 
-        prognosis_decision_1 = start_negotiation(
+        prognosis_decision = start_negotiation(
             description="Prognosis",
-            datetime=self.environment.now,
-            negotiation_issue=prognosis_request,
-            rounds_total=self.environment.plan_board.prognosis_negotiation_log_1.index.get_level_values("Round").max(),
-            ta_policy=self.prognosis_policy,
+            environment_now=self.environment.now,
             ta_parameter=self.prognosis_parameter,
-            ma_policy=self.environment.market_agent.prognosis_policy,
             ma_parameter=self.environment.market_agent.prognosis_parameter,
-            negotiation_data=self.environment.plan_board.prognosis_negotiation_log_1,
-            action_table_df=self.prognosis_action_table_df_1,
-            q_table_df=self.prognosis_q_table_df_1,
-            q_parameter=self.prognosis_q_parameter,
+            plan_board=self.environment.plan_board,
+            negotiation_log=self.environment.plan_board.prognosis_negotiations_log,
         )
 
         # If the negotiation got cleared let the model continue, otherwise proceed to next step of simulation horizon
-        if "Not Cleared" in prognosis_decision_1["Status"]:
+        if "Not Cleared" in prognosis_decision["Status"]:
             self.commitment_data.loc[self.environment.now, "Clearing price prognosis negotiations 1"] = nan
             return
         else:
             print("TA: Prognosis negotiation status: AGREEMENT\n")
-            self.commitment_data.loc[self.environment.now, "Clearing price prognosis negotiations 1"] = prognosis_decision_1["Clearing price"]
+            self.commitment_data.loc[self.environment.now, "Clearing price prognosis negotiations 1"] = prognosis_decision["Clearing price"]
             pass
 
         # Pull UdiEvents while pushing empty DeviceMessages to each EMS
@@ -489,13 +474,13 @@ class TradingAgent(Agent):
                 targeted_power=initialize_series(
                     None,
                     self.environment.now,
-                    self.environment.now + self.prognosis_horizon,
+                    self.environment.now + self.flex_trade_horizon,
                     self.environment.resolution,
                 ),
                 targeted_flexibility=initialize_series(
                     0,
                     self.environment.now,
-                    self.environment.now + self.prognosis_horizon,
+                    self.environment.now + self.flex_trade_horizon,
                     self.environment.resolution,
                 ),
                 deviation_cost_curve=DeviationCostCurve(
@@ -535,15 +520,12 @@ class TradingAgent(Agent):
         print("TA: Flexrequest udi event flexibility: {}\n".format(flex_offer_udi_events[0].offered_flexibility))
 
         # Flex Decision Gate 1: TA and MA bargain over flex request price
-        table_snapshots(
-            snapshots=self.store_table_steps,
-            step_now=self.environment.step_now,
-            timeperiod_now=self.environment.now,
-            stored_q_tables=self.stored_q_tables_flexrequest_1,
-            stored_action_tables=self.stored_action_tables_flexrequest_1,
-            q_table_now=self.flexrequest_q_table_df_1,
-            action_table_now=self.flexrequest_action_table_df_1,
-        )
+        update_adaptive_strategy_data(description="Flexrequest",
+                                      ta_parameter=self.flexrequest_parameter,
+                                      plan_board=self.environment.plan_board,
+                                      timeperiod_now=self.environment.now,
+                                      step_now=self.environment.step_now,
+                                      snapshot=True)
 
         for enum, offer in enumerate(flex_offers):
 
@@ -557,31 +539,13 @@ class TradingAgent(Agent):
             print("TA: Market agent reservation price {}\n".format(self.environment.market_agent.flexrequest_parameter["Reservation price"]))
             print("TA: Trading agent reservation price {}\n".format(self.flexrequest_parameter["Reservation price"]))
 
-            try:
-                self.environment.plan_board.flexrequest_negotiation_logs[offer.description]
-            except:
-                self.environment.plan_board.flexrequest_negotiation_logs[offer.description] = create_negotiation_data_log(
-                                                                                                description=offer.description,
-                                                                                                start=self.environment.start,
-                                                                                                end=self.environment.end
-                                                                                                    - self.environment.resolution
-                                                                                                    - self.environment.max_horizon,
-                                                                                                resolution=self.environment.resolution,
-                                                                                                rounds_total=self.flexrequest_rounds[enum])
             flexrequest_decision = start_negotiation(
                 description=offer.description,
-                negotiation_issue=offer,
-                datetime=self.environment.now,
-                rounds_total=self.flexrequest_rounds[enum],
-                ta_policy=self.flexrequest_policy,
+                environment_now=self.environment.now,
                 ta_parameter=self.flexrequest_parameter,
-                ma_policy=self.environment.market_agent.flexrequest_policy,
                 ma_parameter=self.environment.market_agent.flexrequest_parameter,
-                negotiation_data=self.environment.plan_board.flexrequest_negotiation_logs[offer.description],
-
-                action_table_df=self.flexrequest_action_table_df_1,
-                q_table_df=self.flexrequest_q_table_df_1,
-                q_parameter=self.flexrequest_q_parameter,
+                plan_board=self.environment.plan_board,
+                negotiation_log=self.environment.plan_board.flexrequest_negotiations_log,
             )
 
             print("TA: Flex negotiation status: {}\n".format(flexrequest_decision["Status"]))
@@ -626,7 +590,7 @@ class TradingAgent(Agent):
                     commited_power = deepcopy(event.offered_values)
                     commited_flexibility = deepcopy(event.offered_flexibility)
 
-                    # This loop cuts already commited values from actual offer
+                    # This loop cuts already commited values from actual offer (-> applicable commitments)
                     for index, row in offer.offered_values.iteritems():
 
                         if isnull(offer.offered_flexibility.loc[index]):

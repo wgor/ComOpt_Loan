@@ -15,7 +15,7 @@ from comopt.data_structures.usef_message_types import (
     FlexOrder,
 )
 from random import uniform
-from numpy import nan, nan_to_num
+from numpy import nan, nan_to_num, where, arange, around
 
 
 class MarketAgent(Agent):
@@ -30,25 +30,27 @@ class MarketAgent(Agent):
         environment,
         flex_trade_horizon: timedelta,
         balancing_opportunities: DataFrame,
-        deviation_prices: Union[Tuple[int], int],
-        prognosis_policy: Callable,
+        # deviation_prices: Union[Tuple[int], int],
+        # prognosis_policy: Callable,
         prognosis_parameter: dict,
-        flexrequest_policy: Callable,
+        # flexrequest_policy: Callable,
         flexrequest_parameter: dict,
-        sticking_factor: float,
-        deviation_multiplicator: float,
-        imbalance_market_costs: Series,
+        # sticking_factor: float,
+        # deviation_multiplicator: float,
+        # imbalance_market_costs: Series,
     ):
         """ Creates an instance of the Class MarketAgent. Inherits from the Class Agent """
         super().__init__(name, environment)
-        columns = [
+
+        commitment_data_columns = [
+            "Imbalances",
             "Imbalance market price",
-            "Requested flexibility",
             "Imbalance market costs",
             "Prognosis values",
             "Prognosis costs",
-            "Commited flexibility",
+            "Requested flexibility",
             "Realised flexibility",
+            "Commited flexibility",
             "Deviated flexibility",
             "Flexibility costs",
             "Deviation prices",
@@ -58,28 +60,28 @@ class MarketAgent(Agent):
             "Opportunity costs",
         ]
         self.commitment_data = initialize_df(
-            columns, environment.start, environment.end, environment.resolution
+            commitment_data_columns, environment.start, environment.end, environment.resolution
         )
 
-        self.commitment_data.loc[:, "Deviation prices"] = deviation_prices
-        self.commitment_data.loc[:, "Requested flexibility"] = balancing_opportunities.loc[:, "Imbalance (in MW)"]
+        self.commitment_data.loc[:, "Deviation prices"] = flexrequest_parameter["Deviation prices"]
+        self.commitment_data.loc[:, "Imbalances"] = balancing_opportunities.loc[:, "Imbalance (in MW)"]
         self.commitment_data.loc[:, "Imbalance market price"] = balancing_opportunities.loc[:, "Price (in EUR/MWh)"]
-        self.commitment_data.loc[:, "Imbalance market costs"] = self.commitment_data.loc[:, "Requested flexibility"] \
+        self.commitment_data.loc[:, "Imbalance market costs"] = self.commitment_data.loc[:, "Imbalances"] \
                                                                 * self.commitment_data.loc[:, "Imbalance market price"]
         # self.commitment_data.loc[:, "Received flexibility"] = 0
 
         self.flex_trade_horizon = flex_trade_horizon
 
-        self.balancing_opportunities = balancing_opportunities
-        self.deviation_prices = deviation_prices
-        self.deviation_prices_realised = [] #
-        self.sticking_factor = sticking_factor
-        self.prognosis_policy = prognosis_policy
+        # self.balancing_opportunities = balancing_opportunities
+        # self.deviation_prices = deviation_prices
+        # self.deviation_prices_realised = [] #
+        # self.sticking_factor = sticking_factor
+        # self.prognosis_policy = prognosis_policy
         self.prognosis_parameter = prognosis_parameter
-        self.flexrequest_policy = flexrequest_policy
+        # self.flexrequest_policy = flexrequest_policy
         self.flexrequest_parameter = flexrequest_parameter
-        self.deviation_multiplicator = deviation_multiplicator #
-        self.imbalance_market_costs = imbalance_market_costs
+        # self.deviation_multiplicator = deviation_multiplicator #
+        # self.imbalance_market_costs = imbalance_market_costs
 
     def post_prognosis_request(self) -> Request:
         # prognosis_request_price = self.prognosis_policy()
@@ -116,21 +118,21 @@ class MarketAgent(Agent):
             resolution=self.environment.resolution,
         )
 
-        if uniform(0, 0.99) >= self.sticking_factor:
+        if uniform(0, 0.99) >= self.flexrequest_parameter["Sticking factor"]:
 
             print("\n----------------MA: POST FLEX REQUEST---------------------")
 
-            original_commitment_opportunities = self.balancing_opportunities.loc[
+            original_commitment_opportunities = self.commitment_data.loc[
                 flex_trade_window[0] : flex_trade_window[1]
                 - self.environment.resolution,
-                "Imbalance (in MW)",
+                "Imbalances",
             ].values
 
-            already_bought_commitment = self.commitment_data.loc[
+            already_bought_commitment = around(self.commitment_data.loc[
                 flex_trade_window[0] : flex_trade_window[1]
                 - self.environment.resolution,
                 "Commited flexibility",
-            ].values
+            ].values.astype("float64"),3)
 
             remaining_commitment_opportunities = [
                 opportunity - commitment if not isna(commitment) else opportunity
@@ -143,47 +145,48 @@ class MarketAgent(Agent):
                 for opportunity in remaining_commitment_opportunities
             ]
 
-            requested_values["requested_flexibility"] = remaining_commitment_opportunities
+            requested_values["Requested flexibility"] = remaining_commitment_opportunities
 
-            requested_values["requested_flex_imbalance_market_costs"] = self.imbalance_market_costs.loc[
-                                                                        flex_trade_window[0] : flex_trade_window[1] - self.environment.resolution] \
+            requested_values["Requested power"] = prognosis.commitment.constants.loc[
+                                                        flex_trade_window[0] : flex_trade_window[1]- self.environment.resolution] \
+                                                            + remaining_commitment_opportunities
 
+            # Get market costs for flexibility for the acutal horizon
+            requested_values["Requested costs"] = self.commitment_data.loc[
+                                                            flex_trade_window[0] : flex_trade_window[1] - self.environment.resolution,
+                                                            "Imbalance market costs"]
 
-            # prognosis.commitment.constants.loc[
-            # flex_trade_window[0] : flex_trade_window[1] - self.environment.resolution] + remaining_commitment_opportunities
-            # print("Prognosis power values \n" + str(prognosis.commitment.constants))
+            # Only add market costs to reservation price for timesteps where requested flexibility is not nan
+            self.flexrequest_parameter["Reservation price"] = 0
+            for enum, val in enumerate(requested_values["Requested flexibility"]):
+                if val != nan:
+                    self.flexrequest_parameter["Reservation price"] += requested_values["Requested costs"].iloc[enum]
 
-            requested_values["requested_power"] = (
-                prognosis.commitment.constants.loc[
-                    flex_trade_window[0] : flex_trade_window[1]
-                    - self.environment.resolution
-                ]
-                + remaining_commitment_opportunities
-            )
-
+            print("\n MA: Reservation price: {}".format(self.flexrequest_parameter["Reservation price"]))
             print("\nMA: Already bought commitment: {}".format(already_bought_commitment))
             print("MA: Remaining commitment opportunities: {}".format(remaining_commitment_opportunities))
-            print("\nMA: Requested Power values: {}".format(requested_values["requested_power"]))
-            print("\nMA: Requested Flex values: {}\n".format(requested_values["requested_flexibility"]))
+            print("\nMA: Requested Power values: {}".format(requested_values["Requested power"]))
+            print("\nMA: Requested Flex values: {}\n".format(requested_values["Requested flexibility"]))
+            print("\nMA: Requested Cost values: {}\n".format(requested_values["Requested costs"]))
 
         else: # TODO: Fix sticking
-            requested_power["requested_power"] = prognosis.commitment.constants
+            requested_values["Requested power"] = prognosis.commitment.constants
+
+            requested_values["Requested flexibility"] = nan
 
             print("----------------MA: STICKING ---------------------\n")
             print("MA: Request sticking to prognosis values: {}\n".format(prognosis.commitment.constants))
 
-
-
         # Store requested flexibility in MA commitment data
-        self.commitment_data.loc[flex_trade_window[0] : flex_trade_window[1] - self.environment.resolution, \
-                                 "Requested flexibility"] \
-                                = requested_values["requested_flexibility"]
+        for val, index in zip(requested_values["Requested flexibility"], requested_values["Requested power"].index):
+            if not isnull(val):
+                self.commitment_data.loc[index, "Requested flexibility"] = val
 
         return FlexRequest(
             id=self.environment.plan_board.get_message_id(),
-            requested_values=requested_values["requested_power"],
-            requested_flexibility=requested_values["requested_flexibility"],
-            costs=requested_values["requested_flex_imbalance_market_costs"],
+            requested_values=round(requested_values["Requested power"],2),
+            requested_flexibility=round(requested_values["Requested flexibility"],2),
+            costs=round(self.flexrequest_parameter["Reservation price"] - self.flexrequest_parameter["Markup"] ,2),
             deviation_cost_curve=DeviationCostCurve(
                 gradient=(
                     self.commitment_data.loc[self.environment.now, "Deviation prices"] * -1,
@@ -234,8 +237,20 @@ class MarketAgent(Agent):
                 self.commitment_data.loc[flex_offer.start, "Realised flexibility"] = \
                     self.commitment_data.loc[flex_offer.start, "Commited flexibility"]
 
+
+        if self.commitment_data.loc[flex_offer.start, "Realised flexibility"] > self.commitment_data.loc[flex_offer.start, "Imbalances"]:
+            self.commitment_data.loc[flex_offer.start, "Deviated flexibility"] = \
+                self.commitment_data.loc[flex_offer.start, "Realised flexibility"] - self.commitment_data.loc[flex_offer.start, "Imbalances"]
+
+        elif self.commitment_data.loc[flex_offer.start, "Realised flexibility"] < self.commitment_data.loc[flex_offer.start, "Imbalances"]:
+            self.commitment_data.loc[flex_offer.start, "Deviated flexibility"] = \
+                self.commitment_data.loc[flex_offer.start, "Imbalances"] - self.commitment_data.loc[flex_offer.start, "Realised flexibility"]
+
         print("MA: Commited Flex: {} \n".format(self.commitment_data["Commited flexibility"]))
         print("MA: Realised Flex: {} \n".format(self.commitment_data["Realised flexibility"]))
+        print("MA: Deviated Flex: {} \n".format(self.commitment_data["Deviated flexibility"]))
+        print("MA: Requested Flex: {} \n".format(self.commitment_data["Requested flexibility"]))
+        print("MA: Imbalances: {} \n".format(self.commitment_data["Imbalances"]))
 
         return flex_order
 

@@ -11,11 +11,13 @@ def equal_flex_split_requested(
     ems_agents: List[EMS], flex_request: FlexRequest, environment
 ) -> Series:
     """Split up the requested values in the FlexRequest equally amongst the EMS agents."""
-    # TODO: Use environment.market_agent.commitment_data["Remaining Imbalances"]
 
-    flex_absolute = environment.market_agent.balancing_opportunities[
-        "Imbalance (in MW)"
-    ] - environment.market_agent.commitment_data["Commited flexibility"].fillna(0)
+    # TODO: Use environment.market_agent.commitment_data["Remaining Imbalances"]
+    # flex_absolute = environment.market_agent.balancing_opportunities[
+    #     "Imbalance (in MW)"
+    # ] - environment.market_agent.commitment_data["Commited flexibility"].fillna(0)
+
+    flex_absolute = environment.market_agent.commitment_data.loc[:, "Requested flexibility"]
 
     flex_absolute = initialize_series(
         data=[

@@ -16,13 +16,15 @@ from comopt.model.negotiation_utils import (
     no_noise,
 )
 
-from comopt.policies.learning import (
+from comopt.policies.adaptive_strategies import (
     exploration_function,
     action_function,
     choose_action_greedily_with_noise,
     choose_action_randomly_using_uniform,
     multiply_markup_evenly,
 )
+
+from comopt.model.plan_board import PlanBoard
 
 """Policy functions configures the strategy arguments for agents within negotiations"""
 
@@ -75,54 +77,32 @@ def get_TA_bid_from_sample(policy_function: Callable) -> Callable:
 
 # Decorator function for learning based policies
 def get_TA_bid_from_learning(policy_function: Callable) -> Callable:
-    @wraps(policy_function)
+
     # @wraps allows to keep the object properties of the wrapped functions (e.g. sell_at_any_cost.__name__)
+    @wraps(policy_function)
+
     def policy_function_wrapper(
+        description: str,
+        ta_parameter: dict,
+        plan_board: PlanBoard,
         rounds_total: int,
         rounds_left: int,
-        q_table_df: DataFrame,
-        q_parameter: dict,
-        ta_parameter: dict,
     ) -> dict:
-
-        round_now = rounds_total - rounds_left + 1
 
         # Get return values from wrapped policy function -> dict()
         ta = policy_function(
+            description=description,
+            ta_parameter=ta_parameter,
+            plan_board=plan_board,
             rounds_total=rounds_total,
             rounds_left=rounds_left,
-            q_table_df=q_table_df,
-            q_parameter=q_parameter,
-            ta_parameter=ta_parameter,
         )
-
-        # Use an exploration function to choose an action
-        action = q_parameter["Exploration function"](
-            q_table_df=q_table_df, q_parameter=q_parameter, round_now=round_now
-        )
-
-        # Modify shaped markup based on choosen action function
-        ta["Markup"] = q_parameter["Action function"](
-            action=action,
-            markup=(
-                ta["Markup"]
-                * ta["Concession"](rounds_total=rounds_total, rounds_left=rounds_left)
-            ),
-            show_actions=False,
-        )
-
-        # Compute bid based on reservation price and modified markup
-        ta["Bid"] = ta["Reservation price"] + ta["Markup"]
-
-        # If TAs bid is lower than his reservation price, use reservation price instead
-        if ta["Bid"] < ta["Reservation price"]:
-            ta["Bid"] = ta["Reservation price"]
 
         return {
             "Bid": ta["Bid"],
             "Reservation price": ta["Reservation price"],
             "Markup": ta["Markup"],
-            "Action": action,
+            "Action": ta["Action"],
         }
 
     return policy_function_wrapper
@@ -235,12 +215,46 @@ def sell_with_stochastic_prices(
 @get_TA_bid_from_learning
 # Gets prices based on q-learning
 def Q_learning(
+    description: str,
+    ta_parameter: dict,
+    plan_board: PlanBoard,
     rounds_total: int,
     rounds_left: int,
-    q_table_df: DataFrame,
-    q_parameter: dict,
-    ta_parameter: dict,
 ) -> dict:
+
+    if "Prognosis" in description:
+        q_table = plan_board.q_table_prognosis
+        # action_table = plan_board.action_table_prognosis
+
+    else:
+        q_table = plan_board.q_table_flexrequest
+        # action_table = plan_board.action_table_flexrequest
+
+    round_now = rounds_total - rounds_left + 1
+
+    # Use an exploration function to choose an action
+    action = ta_parameter["Exploration function"](
+        q_table=q_table, ta_parameter=ta_parameter, round_now=round_now
+    )
+
+    # Modify shaped markup based on choosen action function
+    ta_parameter["Markup"] = ta_parameter["Action function"](
+        action=action,
+        markup=(
+            ta_parameter["Markup"] * ta_parameter["Concession"](rounds_total=rounds_total, rounds_left=rounds_left)
+        ),
+        show_actions=False,
+    )
+
+    # Compute bid based on reservation price and modified markup
+    ta_parameter["Bid"] = ta_parameter["Reservation price"] + ta_parameter["Markup"]
+
+    # If TAs bid is lower than his reservation price, use reservation price instead
+    if ta_parameter["Bid"] < ta_parameter["Reservation price"]:
+        ta_parameter["Bid"] = ta_parameter["Reservation price"]
+
+    # Increase exploration functions counter variable one step
+    ta_parameter["Step now"] += 1
 
     # Add additional logic here:
     # e.g if rounds_left == 5, then reservation_price == 10
@@ -251,7 +265,7 @@ def Q_learning(
         "Markup": ta_parameter["Markup"],
         "Concession": ta_parameter["Concession"],
         "Noise": ta_parameter["Noise"],
-        "Q_Table": q_table_df,
-        "Q_Parameter": q_parameter,
-        "Action": None,
+        "Q_table": q_table,
+        # "Q_Parameter": ta_parameter,
+        "Action": action,
     }

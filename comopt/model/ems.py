@@ -1,7 +1,7 @@
 from typing import List, Optional, Tuple, Union
 
 from pandas import DataFrame, Series, isnull, IndexSlice, set_option
-from numpy import array, nan, isnan
+from numpy import array, nan, isnan, around
 
 from warnings import simplefilter
 simplefilter(action='ignore', category=FutureWarning)
@@ -12,7 +12,7 @@ from comopt.data_structures.commitments import (
 )
 from comopt.data_structures.usef_message_types import DeviceMessage, UdiEvent
 from comopt.data_structures.utils import select_applicable
-from comopt.model.utils import initialize_df, initialize_series, initialize_index, create_data_log
+from comopt.model.utils import initialize_df, initialize_series, initialize_index, create_multi_index_log
 
 from comopt.solver.ems_solver import device_scheduler
 from comopt.utils import Agent
@@ -94,8 +94,8 @@ class EMS(Agent):
                       # "Prog total costs", "Plan total costs", "Real total costs", \
                       ]
 
-        # Stores data per device and datetime
-        self.device_data = create_data_log(
+        # Stores data per device and datetime [first_index: datetime, second_index: devices]
+        self.device_data = create_multi_index_log(
             first_index=self.commitments[0].constants.index,
             second_index=self.device_types,
             index_names=["Datetime", "Device"],
@@ -120,13 +120,57 @@ class EMS(Agent):
 
         second_index_horizon_data = [x for x in self.device_types]
         second_index_horizon_data.extend(["Total Costs", "Flexibility"])
-        self.horizon_data = create_data_log(
+        self.horizon_data = create_multi_index_log(
             first_index=self.commitments[0].constants.index,
             second_index=second_index_horizon_data,
             index_names=["Datetime", "Target"],
             column_names=["Prog", "Plan"])
 
+        self.get_initial_device_schedule()
+
         # self.horizon_data.set_index('Costs',append=True, inplace=True)
+
+    def get_initial_device_schedule(self):
+
+        device_constraints = [
+            device_constraints.loc[
+                self.environment.datetime_index
+            ]
+            for device_constraints in self.device_constraints
+        ]
+        ems_constraints = self.ems_constraints.loc[
+            self.environment.datetime_index
+        ]
+
+        # Get previous commitments
+        commitments = self.commitments.copy()
+
+        # applicable_commitments = select_applicable(
+        #     commitments, (self.environment.datetime_index[0],self.environment.datetime_index[-1]), slice=True
+        # )
+
+        scheduled_power_per_device, costs_per_commitment = device_scheduler(
+            device_constraints=device_constraints,
+            ems_constraints=ems_constraints,
+            commitment_quantities=[
+                commitment.constants for commitment in commitments
+            ],
+            commitment_downwards_deviation_price=[
+                commitment.deviation_cost_curve.gradient_down
+                for commitment in commitments
+            ],
+            commitment_upwards_deviation_price=[
+                commitment.deviation_cost_curve.gradient_up
+                for commitment in commitments
+            ],
+        )
+
+
+        print(scheduled_power_per_device)
+
+        # print(düster)
+        return
+
 
     def post_udi_event(self, device_message: DeviceMessage) -> UdiEvent:
         """Callback function to have the EMS create and post a UdiEvent."""
@@ -372,19 +416,19 @@ class EMS(Agent):
 
         print("\nEMS: Costs per commitment:{}".format(costs_per_commitment))
 
-        # print("\n Power over all: {}".format(self.ems_data.loc[start:end, "power"]))
+        print("\n Power over all: {}".format(self.ems_data.loc[start:end, str(prefix + "power")]))
         # print("\n Flex over all: {}".format(self.ems_data.loc[start:end, "flexibility"]))
         # print("\n CC over all: {}".format(self.ems_data.loc[start:end, "contract costs"]))
         # print("\n Dev costs over all: {}".format(self.ems_data.loc[start:end, "dev costs"]))
         # print("\n Tot costs over all: {}".format(self.ems_data.loc[start:end, "total costs"]))
         # print("\n Com costs over all: {}".format(self.ems_data.loc[start:end, "commitment costs"]))
 
-        return {"EMS power": self.ems_data.loc[start:end, str(prefix + "power")], \
-                "EMS flexibility": self.ems_data.loc[start:end, str(prefix +"flexibility")], \
-                "EMS contract costs": self.ems_data.loc[start:end, str(prefix +"contract costs")], \
-                "EMS deviation costs": self.ems_data.loc[start:end, str(prefix +"dev costs")], \
-                "EMS flex costs": self.ems_data.loc[start:end, str(prefix +"flex costs")], \
-                "EMS commitment costs": self.ems_data.loc[start:end, str(prefix +"commitment costs")]}
+        return {"EMS power": around(self.ems_data.loc[start:end, str(prefix + "power")].astype("float64"),3), \
+                "EMS flexibility": around(self.ems_data.loc[start:end, str(prefix +"flexibility")].astype("float64"),3), \
+                "EMS contract costs": around(self.ems_data.loc[start:end, str(prefix +"contract costs")].astype("float64"),3), \
+                "EMS deviation costs": around(self.ems_data.loc[start:end, str(prefix +"dev costs")].astype("float64"),3), \
+                "EMS flex costs": around(self.ems_data.loc[start:end, str(prefix +"flex costs")].astype("float64"),3), \
+                "EMS commitment costs": around(self.ems_data.loc[start:end, str(prefix +"commitment costs")].astype("float64"),3)}
 
 
     def step(self):

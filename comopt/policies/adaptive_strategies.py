@@ -19,12 +19,13 @@ from functools import wraps
 
 # Decorator for exploration functions
 def exploration_function(exploration_function: Callable) -> Callable:
+
     @wraps(exploration_function)
     def exploration_function_wrapper(
-        q_table_df: DataFrame, q_parameter: dict, round_now: int
+        q_table: DataFrame, ta_parameter: dict, round_now: int
     ):
         return exploration_function(
-            q_table_df=q_table_df, q_parameter=q_parameter, round_now=round_now
+            q_table=q_table, ta_parameter=ta_parameter, round_now=round_now
         )
 
     return exploration_function_wrapper
@@ -53,23 +54,23 @@ def action_function(action_function: Callable) -> Callable:
 @exploration_function
 # Randomizes existing Q-table with decaying noise (-> 1/environment.step_now). Action then gets chosen based on max Q-values of the randomized table.
 def choose_action_greedily_with_noise(
-    q_table_df: DataFrame, q_parameter: dict, round_now: int
+    q_table: DataFrame, ta_parameter: dict, round_now: int
 ) -> str:
 
     # Make copy of Q-Table
-    randomized_table = deepcopy(q_table_df)
+    randomized_table = deepcopy(q_table)
     # Get number of possible actions
     number_of_actions = len(
-        q_parameter["Action function"](
+        ta_parameter["Action function"](
             action=None, markup=None, show_actions=True
         ).keys()
     )
 
     # Randomize Q-value(=value) for each action(=column) in round_now(=index)
-    for col in q_table_df.columns:
-        randomized_table.loc[round_now, col] = q_table_df.loc[round_now, col] + randint(
+    for col in q_table.columns:
+        randomized_table.loc[round_now, col] = q_table.loc[round_now, col] + randint(
             1, number_of_actions
-        ) * (1. / (q_parameter["Step now"]))
+        ) * (1. / (ta_parameter["Step now"]))
 
     # Get column name of max Q-value from randomized Q-Table
     action = randomized_table.loc[round_now, :].idxmax(axis=1)
@@ -80,17 +81,17 @@ def choose_action_greedily_with_noise(
 @exploration_function
 # If uniform(0,1) gives a number above q_parameter["Epsilon"], agent uses random action sampling. Otherwise the action with max Q-Value gets selected.
 def choose_action_randomly_using_uniform(
-    q_table_df: DataFrame, q_parameter: dict, round_now: int
+    q_table: DataFrame, ta_parameter: dict, round_now: int
 ) -> str:
 
     # Random selection
-    if uniform(0, 1) > q_parameter["Epsilon"]:
-        action = q_table_df.loc[round_now, :].sample(1)
+    if uniform(0, 1) > ta_parameter["Epsilon"]:
+        action = q_table.loc[round_now, :].sample(1)
         return action.index.format()[0]
 
     # Greedy selection
     else:
-        action = q_table_df.loc[round_now, :].idxmax()
+        action = q_table.loc[round_now, :].idxmax()
 
         return action
 
