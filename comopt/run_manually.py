@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from random import uniform, randint, gauss, seed
 
 from pandas import set_option
@@ -23,6 +23,7 @@ from comopt.scenario.ems_constraints import (
     dispatchable_load_profile_with_bounds
     # curtailable_integer_test_profile,
 )
+from comopt.scenario.buffer_constraints import daily_buffer_profile
 
 # POLICY FUNCTIONS:
 from comopt.scenario.ma_policies import (
@@ -157,6 +158,17 @@ input_data = {
             # limited_battery_capacity_profile(start=start, end=end, resolution=resolution,
             #                                 battery_power_capacity=5, soc_limits=(5,20), soc_start=10,)
             # 4) Buffer
+            (
+                "buffer",
+                daily_buffer_profile(
+                    start=start,
+                    end=end,
+                    resolution=resolution,
+                    buffer_power_capacity=2.5,  # kW
+                    buffer_storage_capacity=3,  # kWh
+                    fill_between=(time(12, 15), time(14, 45)),
+                )
+            ),
         ],
         [],  # >>>>>> EMS 2 <<<<<#
         [],  # >>>>>> EMS 3 <<<<<#

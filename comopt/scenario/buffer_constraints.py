@@ -1,82 +1,61 @@
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from typing import Tuple
 
-from pandas import DataFrame
+from pandas import DataFrame, date_range
 
-from comopt.model.ems_constraints import completely_unconstrained_profile
-
-
-# def limited_buffer_capacity_profile(
-#     start: datetime,
-#     end: datetime,
-#     resolution: timedelta,
-#     buffer_power_capacity: float,
-# ) -> DataFrame:
-#     df = completely_unconstrained_profile(start=start, end=end, resolution=resolution)
-#     df["derivative max"] = buffer_power_capacity
-#     df["derivative min"] = -buffer_power_capacity
-#     df["min"] = soc_limits[0]
-#     df["max"] = soc_limits[1]
-#     df["equals"].iloc[0] = soc_start
-#     return df
+from comopt.scenario.ems_constraints import limited_consumption_profile
+from comopt.scenario.utils import time_duration, time_plus
 
 
-def follow_generated_buffer_profile(
+def daily_buffer_profile(
     start: datetime,
     end: datetime,
     resolution: timedelta,
     buffer_power_capacity: float,
-    frequency: float,
-    window_size: float,
+    buffer_storage_capacity: float,
+    fill_between: Tuple[time, time],
+    start_fill: float = 0,
 ) -> DataFrame:
-    df = completely_unconstrained_profile(start=start, end=end, resolution=resolution)
-    df["derivative max"] = buffer_power_capacity
-    df["derivative min"] = -buffer_power_capacity
-    df["min"] = soc_limits[0]
-    df["max"] = soc_limits[1]
-    df["equals"].iloc[0] = soc_start
+    """Daily consumption for a buffer that needs to be fully filled within specific hours (fill_between).
+    NB: Time values must be multiple of resolution. Function fails when given the flexibility to fill around midnight.
+    """
 
-    dummy_index = DatetimeIndex(start=start, end=end, freq=resolution)
-    num_samples = int(len(dummy_index) * frequency)
+    min_fill_duration = timedelta(hours=buffer_storage_capacity / buffer_power_capacity)
+    if time_duration(*fill_between) < min_fill_duration:
+        raise ValueError("Not enough time to completely fill buffer.")
 
-    windows_data = uniform(size=len(dummy_index)) * 0.25
-    windows = Series(data=windows_data * 0.25, index=dummy_index)
+    df = limited_consumption_profile(start=start, end=end, resolution=resolution, capacity=buffer_power_capacity)
+    min_fill_steps = min_fill_duration // resolution
+    min_empty_time = fill_between[0]
+    min_full_time = time_plus(fill_between[0], min_fill_duration)
+    max_empty_time = time_plus(fill_between[1], -min_fill_duration)
+    max_full_time = fill_between[1]
+    daily_start_fill = start_fill
+    for d in date_range(start, end):
+        daily_end_fill = daily_start_fill + buffer_storage_capacity
+        min_empty_datetime = datetime.combine(d, min_empty_time)
+        min_full_datetime = datetime.combine(d, min_full_time)
+        max_empty_datetime = datetime.combine(d, max_empty_time)
+        max_full_datetime = datetime.combine(d, max_full_time)
+        day_start_datetime = d.replace(hour=0, minute=0, second=0).to_pydatetime()
+        day_end_datetime = day_start_datetime + timedelta(days=1)
+        df["max"].loc[day_start_datetime : min_empty_datetime - resolution] = daily_start_fill
+        df["min"].loc[day_start_datetime : max_empty_datetime - resolution] = daily_start_fill
+        for fill_step in range(min_fill_steps):
 
-    samples_df = Series(index=dummy_index)
-    window_size = (2, 5)
-    samples = [
-        windows.iloc[x : x + randint(window_size[0], window_size[1])]
-        for x in randint(len(windows), size=num_samples)
-    ]
+            # Fill max column forward from min_fill_datetime
+            fill_max_value = daily_start_fill + (fill_step + 1) * buffer_power_capacity * resolution/timedelta(hours=1)
+            df["max"].loc[min_empty_datetime - resolution + (fill_step + 1) * resolution] = fill_max_value
 
-    for sample in samples:
-        sample_sum = sample.sum()
-        samples_df.loc[sample.index[0] : sample.index[-1]] = sample_sum
+            # Fill min column backward from max_fill_datetime
+            fill_min_value = daily_end_fill - (fill_step + 1) * buffer_power_capacity * resolution / timedelta(hours=1)
+            df["min"].loc[max_full_datetime - resolution - (fill_step + 1) * resolution] = fill_min_value
+        df["max"].loc[min_full_datetime - resolution : day_end_datetime] = daily_end_fill
+        df["min"].loc[max_full_datetime - resolution : day_end_datetime] = daily_end_fill
 
-    # Catch and delete single windows
-    cnt = 0
-    last = samples_df.iloc[1]
-    for val in samples_df:
-        if isnan(val):
-            cnt += 1
-            last = val
-            continue
-        else:
-            if cnt == 0:
-                cnt += 1
-                continue
-            else:
-                try:
-                    samples_df.iloc[cnt + 1]
-                except:
-                    continue
-                else:
-                    if last != val and samples_df.iloc[cnt + 1] != val:
-                        samples_df.iloc[cnt] = nan
-                        cnt += 1
-                        last = val
-                    else:
-                        cnt += 1
-                        last = val
-
+        # Update for next day
+        daily_start_fill = daily_end_fill
+    # import pandas as pd
+    # with pd.option_context("display.max_columns", None, "display.max_rows", None):
+    #     input(df.loc[:, "max": "min"])
     return df
